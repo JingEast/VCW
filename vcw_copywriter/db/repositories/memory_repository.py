@@ -1,0 +1,92 @@
+"""
+MemoryEntry Repository
+记忆库数据访问层。
+"""
+from typing import Dict, List
+from sqlalchemy.orm import Session
+
+from .base import BaseRepository
+from ..models import MemoryEntry
+
+
+class MemoryRepository(BaseRepository):
+    """记忆库 Repository"""
+
+    def __init__(self, session: Session):
+        super().__init__(session, MemoryEntry)
+
+    def add_entry(self, topic: str, issue_description: str, issue_tags: List[str],
+                  correction_plan: str, original_text: str = "") -> MemoryEntry:
+        import uuid
+        entry = MemoryEntry(
+            id=str(uuid.uuid4())[:8],
+            topic=topic,
+            issue_description=issue_description,
+            issue_tags=issue_tags or ["其他"],
+            correction_plan=correction_plan,
+            original_text=original_text,
+        )
+        self.session.add(entry)
+        self.session.commit()
+        self.session.refresh(entry)
+        return entry
+
+    def get_entries_by_topic(self, topic: str, limit: int = 10) -> List[MemoryEntry]:
+        topic_key = topic.strip()
+        entries = self.session.query(MemoryEntry).filter(
+            MemoryEntry.topic == topic_key
+        ).order_by(MemoryEntry.created_at.desc()).limit(limit).all()
+        return entries
+
+    def get_entries_by_tags(self, tags: List[str], limit: int = 10) -> List[MemoryEntry]:
+        # 简单实现：查询所有然后过滤（PostgreSQL 可用 JSONB @> 优化）
+        entries = self.session.query(MemoryEntry).order_by(
+            MemoryEntry.created_at.desc()
+        ).all()
+        tag_set = set(tags)
+        matched = [e for e in entries if tag_set & set(e.issue_tags or [])]
+        return matched[:limit]
+
+    def get_recent_entries(self, limit: int = 20) -> List[MemoryEntry]:
+        return self.session.query(MemoryEntry).order_by(
+            MemoryEntry.created_at.desc()
+        ).limit(limit).all()
+
+    def mark_avoided(self, entry_id: str) -> bool:
+        entry = self.get_by_id(entry_id)
+        if entry:
+            entry.is_avoided = True
+            self.session.commit()
+            return True
+        return False
+
+    def generate_report(self) -> str:
+        total = self.session.query(MemoryEntry).count()
+        avoided = self.session.query(MemoryEntry).filter(MemoryEntry.is_avoided).count()
+
+        # 标签统计（在 Python 中聚合，因为 issue_tags 是 JSON）
+        entries = self.session.query(MemoryEntry).all()
+        tag_counts: Dict[str, int] = {}
+        topic_counts: Dict[str, int] = {}
+        for e in entries:
+            tags: List[str] = list(e.issue_tags or [])  # type: ignore[union-attr]
+            for t in tags:
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+            topic_counts[e.topic] = topic_counts.get(e.topic, 0) + 1  # type: ignore[index, call-overload]
+
+        lines = [
+            "=== 记忆库统计报告 ===",
+            f"总条目数: {total}",
+            f"已规避: {avoided} | 待规避: {total - avoided}",
+            "",
+            "问题类型分布:",
+        ]
+        for tag, count in sorted(tag_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  - {tag}: {count}条")
+
+        lines.append("")
+        lines.append("主题分布:")
+        for topic, count in sorted(topic_counts.items(), key=lambda x: -x[1]):
+            lines.append(f"  - {topic}: {count}条")
+
+        return "\n".join(lines)

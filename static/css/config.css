@@ -1,0 +1,31 @@
+.endpoint-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.endpoint-table th,
+.endpoint-table td {
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.endpoint-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.endpoint-table td input {
+    width: 100%;
+    padding: 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.endpoint-table td input:focus {
+    outline: none;
+    border-color: var(--primary);
+}

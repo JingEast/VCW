@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}配置 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>系统配置</h1>
+    <p>配置LLM API和生成参数</p>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>LLM 配置</h2>
+        </div>
+        <form action="{{ url_for('config_save') }}" method="POST" id="configForm">
+            <!-- 基础配置 -->
+            <div class="form-group">
+                <label for="api_key">默认 API Key <span class="required">*</span></label>
+                <input type="password" id="api_key" name="api_key"
+                       value="{{ config.llm.api_key }}"
+                       placeholder="sk-xxxxxxxxxxxxxxxx">
+                <small>支持 OpenAI、DeepSeek、Kimi 等任意 OpenAI 兼容接口</small>
+            </div>
+
+            <div class="form-group">
+                <label for="base_url">默认 Base URL</label>
+                <input type="text" id="base_url" name="base_url"
+                       value="{{ config.llm.base_url }}"
+                       placeholder="https://api.openai.com/v1">
+            </div>
+
+            <div class="form-group">
+                <label for="model">默认模型名称</label>
+                <input type="text" id="model" name="model"
+                       value="{{ config.llm.model }}"
+                       placeholder="gpt-4o">
+            </div>
+
+            <!-- 多模型 Endpoint 配置 -->
+            <div class="form-group">
+                <label>多模型 Endpoint 配置（智能路由）</label>
+                <p class="text-muted small">系统会按优先级自动尝试，失败自动切换到下一个</p>
+                <table class="endpoint-table" id="endpointTable">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>API Key</th>
+                            <th>Base URL</th>
+                            <th>模型</th>
+                            <th>优先级</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ep in config.llm.get('endpoints', []) %}
+                        <tr class="endpoint-row">
+                            <td><input type="text" name="ep_name[]" value="{{ ep.name }}" placeholder="kimi"></td>
+                            <td><input type="password" name="ep_key[]" value="{{ ep.api_key }}" placeholder="sk-..."></td>
+                            <td><input type="text" name="ep_url[]" value="{{ ep.base_url }}" placeholder="https://..."></td>
+                            <td><input type="text" name="ep_model[]" value="{{ ep.model }}" placeholder="model"></td>
+                            <td><input type="number" name="ep_priority[]" value="{{ ep.priority }}" min="0" max="10" style="width:60px"></td>
+                            <td><button type="button" class="btn btn-small btn-danger" onclick="removeEndpointRow(this)">删除</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-small btn-secondary" onclick="addEndpointRow()" style="margin-top:0.5rem">+ 添加 Endpoint</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="temperature">Temperature</label>
+                    <input type="number" id="temperature" name="temperature" step="0.1" min="0" max="2"
+                           value="{{ config.llm.temperature }}">
+                </div>
+                <div class="form-group half">
+                    <label for="max_tokens">Max Tokens</label>
+                    <input type="number" id="max_tokens" name="max_tokens" step="100" min="500" max="8000"
+                           value="{{ config.llm.max_tokens }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="strict_mode" {% if config.quality_check.strict_mode %}checked{% endif %}>
+                    启用严格模式（warning级别的问题也视为未通过）
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary">保存配置</button>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <div class="card info-card">
+            <div class="card-header">
+                <h3>常用配置参考</h3>
+            </div>
+            <div class="card-body">
+                <h4>OpenAI</h4>
+                <pre class="config-example">
+Base URL: https://api.openai.com/v1
+Model: gpt-4o</pre>
+
+                <h4>DeepSeek</h4>
+                <pre class="config-example">
+Base URL: https://api.deepseek.com/v1
+Model: deepseek-chat</pre>
+
+                <h4>Kimi (Moonshot)</h4>
+                <pre class="config-example">
+Base URL: https://api.moonshot.cn/v1
+Model: moonshot-v1-8k</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>当前配置状态</h3>
+            </div>
+            <div class="card-body">
+                <p>API Key: {% if config.llm.api_key %}<span class="text-success">已设置</span>{% else %}<span class="text-danger">未设置</span>{% endif %}</p>
+                <p>模型: <code>{{ config.llm.model }}</code></p>
+                <p>Base URL: <code>{{ config.llm.base_url }}</code></p>
+                <p>严格模式: {% if config.quality_check.strict_mode %}开启{% else %}关闭{% endif %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/config.css') }}">
+
+<script src="{{ url_for('static', filename='js/config.js') }}"></script>
+{% endblock %}

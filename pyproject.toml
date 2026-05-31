@@ -1,0 +1,19 @@
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = false
+ignore_missing_imports = true
+check_untyped_defs = false
+no_implicit_optional = false
+warn_redundant_casts = false
+warn_unused_ignores = false
+
+exclude = [
+    "docs/",
+    "migrate_from_json.py",
+    "tests/",
+]
+
+[tool.bandit]
+exclude_dirs = [".venv", "__pycache__", "alembic", ".pytest_cache", ".idea"]
+skips = ["B101"]

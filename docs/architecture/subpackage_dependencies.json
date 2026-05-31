@@ -1,0 +1,18 @@
+{
+  "alembic": [
+    "vcw_copywriter"
+  ],
+  "app": [
+    "vcw_copywriter"
+  ],
+  "migrate_from_json": [
+    "vcw_copywriter"
+  ],
+  "run": [
+    "vcw_copywriter"
+  ],
+  "tests": [
+    "app",
+    "vcw_copywriter"
+  ]
+}

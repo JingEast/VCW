@@ -1,0 +1,100 @@
+{
+  "generated_at": "2026-05-31T12:00:00+08:00",
+  "global": {
+    "total_calls": 1250,
+    "total_input_tokens": 156000,
+    "total_output_tokens": 312000,
+    "total_tokens": 468000,
+    "total_cost": 5.148,
+    "avg_latency_ms": 2345.6,
+    "p50_latency_ms": 1890.0,
+    "p90_latency_ms": 4567.0,
+    "p99_latency_ms": 8912.0,
+    "min_latency_ms": 456.0,
+    "max_latency_ms": 12345.0,
+    "success_rate": 0.968,
+    "error_rate": 0.032,
+    "model_distribution": {
+      "gpt-4o": 680,
+      "moonshot-v1-8k": 420,
+      "claude-3-sonnet": 150
+    },
+    "model_costs": {
+      "gpt-4o": 3.72,
+      "moonshot-v1-8k": 1.008,
+      "claude-3-sonnet": 0.42
+    }
+  },
+  "by_model": {
+    "gpt-4o": {
+      "total_calls": 680,
+      "total_input_tokens": 85000,
+      "total_output_tokens": 170000,
+      "total_cost": 3.72,
+      "avg_latency_ms": 1890.0,
+      "p90_latency_ms": 3456.0,
+      "success_rate": 0.975
+    },
+    "moonshot-v1-8k": {
+      "total_calls": 420,
+      "total_input_tokens": 52000,
+      "total_output_tokens": 104000,
+      "total_cost": 1.008,
+      "avg_latency_ms": 3120.0,
+      "p90_latency_ms": 5678.0,
+      "success_rate": 0.962
+    },
+    "claude-3-sonnet": {
+      "total_calls": 150,
+      "total_input_tokens": 19000,
+      "total_output_tokens": 38000,
+      "total_cost": 0.42,
+      "avg_latency_ms": 1560.0,
+      "p90_latency_ms": 2890.0,
+      "success_rate": 0.98
+    }
+  },
+  "time_windows": {
+    "last_1h": {
+      "total_calls": 85,
+      "total_cost": 0.352,
+      "avg_latency_ms": 2134.0,
+      "success_rate": 0.965
+    },
+    "last_24h": {
+      "total_calls": 1250,
+      "total_cost": 5.148,
+      "avg_latency_ms": 2345.6,
+      "success_rate": 0.968
+    },
+    "last_7d": {
+      "total_calls": 8750,
+      "total_cost": 35.42,
+      "avg_latency_ms": 2456.0,
+      "success_rate": 0.971
+    }
+  },
+  "prometheus_metrics": {
+    "counters": [
+      "prompt_calls_total{model=\"gpt-4o\",status=\"success\"} 663",
+      "prompt_calls_total{model=\"gpt-4o\",status=\"error\"} 17",
+      "prompt_tokens_total{model=\"gpt-4o\",type=\"input\"} 85000",
+      "prompt_tokens_total{model=\"gpt-4o\",type=\"output\"} 170000",
+      "prompt_cost_total{model=\"gpt-4o\"} 3.72",
+      "prompt_calls_total{model=\"moonshot-v1-8k\",status=\"success\"} 404",
+      "prompt_calls_total{model=\"moonshot-v1-8k\",status=\"error\"} 16",
+      "prompt_tokens_total{model=\"moonshot-v1-8k\",type=\"input\"} 52000",
+      "prompt_tokens_total{model=\"moonshot-v1-8k\",type=\"output\"} 104000",
+      "prompt_cost_total{model=\"moonshot-v1-8k\"} 1.008"
+    ],
+    "histograms": [
+      "prompt_latency_seconds_bucket{model=\"gpt-4o\",le=\"1.0\"} 450",
+      "prompt_latency_seconds_bucket{model=\"gpt-4o\",le=\"2.0\"} 612",
+      "prompt_latency_seconds_bucket{model=\"gpt-4o\",le=\"5.0\"} 678",
+      "prompt_latency_seconds_bucket{model=\"gpt-4o\",le=\"+Inf\"} 680"
+    ],
+    "gauges": [
+      "prompt_active_requests 3"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+No Python files exceed 1000 lines.
+
+Top 15 largest files:
+    771 lines  vcw_copywriter/prompts/defaults.py
+    532 lines  vcw_copywriter/trend_db.py
+    526 lines  vcw_copywriter/scraper/providers/html_provider.py
+    419 lines  vcw_copywriter/scraper/utils.py
+    411 lines  vcw_copywriter/auto_prompt.py
+    409 lines  vcw_copywriter/prompts/composer.py
+    337 lines  vcw_copywriter/knowledge_base.py
+    329 lines  vcw_copywriter/scraper/pipelines.py
+    320 lines  vcw_copywriter/db/repositories/trend_repository.py
+    302 lines  vcw_copywriter/model_router.py
+    277 lines  vcw_copywriter/main.py
+    253 lines  vcw_copywriter/db/models.py
+    243 lines  vcw_copywriter/viral_analyzer.py
+    243 lines  app/__init__.py
+    233 lines  vcw_copywriter/prompts/loader.py

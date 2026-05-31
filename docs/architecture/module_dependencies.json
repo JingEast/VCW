@@ -1,0 +1,113 @@
+{
+  "alembic.env": [
+    "vcw_copywriter.db.models",
+    "vcw_copywriter.db.session"
+  ],
+  "app.api.v1.editor": [
+    "app.api.v1.common",
+    "app.core.container",
+    "vcw_copywriter.generator"
+  ],
+  "app.api.v1.generate": [
+    "app.api.v1.common",
+    "app.core.container",
+    "app.services.prompt_service",
+    "vcw_copywriter.checker",
+    "vcw_copywriter.generator",
+    "vcw_copywriter.model_router",
+    "vcw_copywriter.task_queue"
+  ],
+  "app.api.v1.misc": [
+    "app.api.v1.common",
+    "app.core.container",
+    "app.services.prompt_service",
+    "vcw_copywriter.model_router"
+  ],
+  "app.api.v1.prompts": [
+    "app.api.v1.common",
+    "app.core.container",
+    "vcw_copywriter.knowledge_base",
+    "vcw_copywriter.prompt_builder"
+  ],
+  "app.api.v1.trends": [
+    "app.api.v1.common",
+    "app.core.container"
+  ],
+  "app.core.container": [
+    "vcw_copywriter.config",
+    "vcw_copywriter.editor",
+    "vcw_copywriter.memory",
+    "vcw_copywriter.scheduler",
+    "vcw_copywriter.trend_db",
+    "vcw_copywriter.viral_analyzer"
+  ],
+  "app.pages.batch": [
+    "app.core.container",
+    "vcw_copywriter.batch_generator",
+    "vcw_copywriter.prompt_builder"
+  ],
+  "app.pages.config": [
+    "app.core.container"
+  ],
+  "app.pages.editor": [
+    "app.core.container"
+  ],
+  "app.pages.history": [
+    "app.core.container"
+  ],
+  "app.pages.main": [
+    "app.core.container",
+    "vcw_copywriter.checker",
+    "vcw_copywriter.generator",
+    "vcw_copywriter.prompt_builder"
+  ],
+  "app.pages.memory": [
+    "app.core.container"
+  ],
+  "app.pages.prompts": [
+    "vcw_copywriter.prompt_builder"
+  ],
+  "app.pages.resources": [
+    "vcw_copywriter.knowledge_base"
+  ],
+  "app.pages.trends": [
+    "app.core.container",
+    "vcw_copywriter.auto_prompt",
+    "vcw_copywriter.trend_scraper"
+  ],
+  "app.services.app_services": [
+    "app.container",
+    "vcw_copywriter.config",
+    "vcw_copywriter.editor",
+    "vcw_copywriter.memory",
+    "vcw_copywriter.scheduler",
+    "vcw_copywriter.trend_db",
+    "vcw_copywriter.viral_analyzer"
+  ],
+  "app.services.prompt_service": [
+    "app.core.container",
+    "vcw_copywriter.prompt_builder"
+  ],
+  "migrate_from_json": [
+    "vcw_copywriter.db.models",
+    "vcw_copywriter.db.repositories.memory_repository",
+    "vcw_copywriter.db.repositories.trend_repository",
+    "vcw_copywriter.db.session"
+  ],
+  "run": [
+    "vcw_copywriter.main"
+  ],
+  "tests.conftest": [
+    "app",
+    "app.core.container",
+    "vcw_copywriter.db.session"
+  ],
+  "tests.test_generate": [
+    "app.pages.main",
+    "vcw_copywriter.editor",
+    "vcw_copywriter.generator"
+  ],
+  "tests.test_service": [
+    "vcw_copywriter.editor"
+  ]
+}

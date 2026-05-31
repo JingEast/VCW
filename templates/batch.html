@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}批量生成 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>批量生成文案</h1>
+    <p>一次生成多个角度变体，覆盖不同用户画像</p>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>批量参数</h2>
+        </div>
+        <form action="{{ url_for('batch_generate') }}" method="POST" id="batchForm">
+            <div class="form-group">
+                <label for="topic">主题 <span class="required">*</span></label>
+                <input type="text" id="topic" name="topic" required
+                       placeholder="例如：DSE考砸后的保底路径"
+                       value="{{ prefill_topic or 'DSE考砸后的保底路径' }}">
+            </div>
+
+            <div class="form-group">
+                <label>生成角度（可多选）</label>
+                <div class="tag-selector">
+                    <label><input type="checkbox" name="angles" value="焦虑型" checked> 焦虑型（戳痛点+给希望）</label>
+                    <label><input type="checkbox" name="angles" value="数据型" checked> 数据型（权威数据+对比）</label>
+                    <label><input type="checkbox" name="angles" value="故事型" checked> 故事型（案例故事+代入感）</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="audience">目标受众</label>
+                <select id="audience" name="audience">
+                    <option value="港宝家长" selected>港宝家长</option>
+                    <option value="DSE考生">DSE考生</option>
+                    <option value="双非港宝家长">双非港宝家长</option>
+                    <option value="永居港宝家长">永居港宝家长</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="core_data">核心数据（务必标注年份）</label>
+                <textarea id="core_data" name="core_data" rows="2"
+                          placeholder="例如：DSE 2025年报考人数约5万人">{{ prefill_core_data or 'DSE 2025年报考人数约5万人；港八大录取率约21%' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="policy_points">政策要点</label>
+                <textarea id="policy_points" name="policy_points" rows="2"
+                          placeholder="标注有效期">{{ prefill_policy_points or '副学士六科全2分可读；内地暨南大学独立招生英文2分也收（2025-2026学年有效）' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="hidden_path">隐藏路径</label>
+                <textarea id="hidden_path" name="hidden_path" rows="2"
+                          placeholder="确认当前仍有效">{{ prefill_hidden_path or '英国澳洲部分大学接受DSE英文2分+雅思5.5（需确认目标院校最新语言要求）' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="call_to_action">行动号召</label>
+                <input type="text" id="call_to_action" name="call_to_action"
+                       value="{{ prefill_call_to_action or '留言领取资料' }}">
+            </div>
+
+            <div class="form-group">
+                <label for="sample_ref">参考样本</label>
+                <select id="sample_ref" name="sample_ref">
+                    <option value="">（无）</option>
+                    <option value="样本一">样本一：DSE考砸保底路径</option>
+                    <option value="样本二">样本二：DSE vs 联考对比</option>
+                    <option value="样本三">样本三：宝藏专业推荐</option>
+                    <option value="样本四">样本四：JUPAS志愿填报</option>
+                    <option value="样本五">样本五：M1/M2选科策略</option>
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large">
+                    开始批量生成
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <div class="card info-card">
+            <div class="card-header">
+                <h3>角度说明</h3>
+            </div>
+            <div class="card-body">
+                <h4>焦虑型</h4>
+                <p class="text-muted">先戳家长痛点（考砸了怎么办？），再给解决方案。情绪起伏大，感叹号多。</p>
+                
+                <h4>数据型</h4>
+                <p class="text-muted">用权威数据建立信任，对比结构清晰（DSE vs 联考）。数字口语化。</p>
+                
+                <h4>故事型</h4>
+                <p class="text-muted">用真实案例/人物故事引入，有代入感和画面感。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if results %}
+<div class="card">
+    <div class="card-header">
+        <h2>生成结果</h2>
+        <span class="text-muted">共 {{ results|length }} 篇</span>
+    </div>
+    <div class="card-body">
+        {% for r in results %}
+        <div class="result-item {% if not r.success %}result-error{% endif %}">
+            <div class="result-header">
+                <span class="badge badge-primary">{{ r.angle }}</span>
+                {% if r.passed %}
+                <span class="badge badge-success">质检通过</span>
+                {% else %}
+                <span class="badge badge-warning">质检未通过</span>
+                {% endif %}
+                <span class="text-muted small">{{ r.meta }}</span>
+            </div>
+            
+            {% if r.success %}
+            <pre class="result-content">{{ r.content[:500] }}{% if r.content|length > 500 %}...{% endif %}</pre>
+            
+            <div class="result-actions">
+                <a href="{{ url_for('editor_page', content=r.content|urlencode, topic=topic|urlencode, angle=r.angle|urlencode) }}" 
+                   class="btn btn-small btn-primary">进入精修</a>
+                <button class="btn btn-small" onclick="copyText('{{ r.content|replace('\n', '\\n')|replace("'", "\\'") }}')">复制</button>
+            </div>
+            
+            {% if r.issues %}
+            <div class="issue-mini-list">
+                {% for issue in r.issues %}
+                <span class="issue-mini issue-{{ issue.level }}">{{ issue.text[:60] }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <p class="text-danger">生成失败: {{ r.issues[0].text if r.issues else '未知错误' }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/batch.js') }}"></script>
+{% endblock %}

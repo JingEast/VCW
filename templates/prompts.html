@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt编辑 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Prompt 模板编辑</h1>
+    <p>可视化查看和编辑 System Prompt / User Prompt 模板，实时预览渲染效果</p>
+</div>
+
+<div class="grid-2">
+    <!-- 左侧：编辑区 -->
+    <div class="card">
+        <div class="card-header">
+            <h2>System Prompt 模板</h2>
+            <span class="text-muted">支持 {memory_section} 和 {knowledge_section} 占位符</span>
+        </div>
+        <div class="card-body">
+            <div class="prompt-editor-tabs">
+                <button class="tab-btn active" onclick="switchEditorTab('edit')">编辑</button>
+                <button class="tab-btn" onclick="switchEditorTab('preview')">Markdown预览</button>
+            </div>
+            <textarea id="systemPromptEditor" class="prompt-editor" rows="20" oninput="updateLivePreview()">{{ system_template }}</textarea>
+            <div id="liveMarkdownPreview" class="markdown-preview" style="display:none;"></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary" onclick="savePrompt()">保存模板</button>
+                <button type="button" class="btn btn-secondary" onclick="resetPrompt()">重置默认</button>
+                <button type="button" class="btn btn-accent" onclick="previewPromptRender()">参数渲染预览</button>
+            </div>
+            <p id="saveStatus" class="save-status"></p>
+        </div>
+    </div>
+
+    <!-- 右侧：预览区 -->
+    <div class="card">
+        <div class="card-header">
+            <h2>预览参数</h2>
+            <span class="text-muted">填入参数后点击「预览渲染」</span>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label>主题</label>
+                <input type="text" id="previewTopic" value="DSE考砸后的保底路径">
+            </div>
+            <div class="form-group">
+                <label>目标受众</label>
+                <input type="text" id="previewAudience" value="港宝家长">
+            </div>
+            <div class="form-group">
+                <label>核心数据</label>
+                <textarea id="previewData" rows="2">DSE 2025年报考人数约5万人；港八大录取率约21%</textarea>
+            </div>
+            <div class="form-group">
+                <label>政策要点</label>
+                <textarea id="previewPolicy" rows="2">副学士六科全2分可读；暨南大学独立招生英文2分也收</textarea>
+            </div>
+            <div class="form-group">
+                <label>隐藏路径</label>
+                <input type="text" id="previewPath" value="英国部分大学接受DSE英文2分+雅思5.5">
+            </div>
+            <div class="form-group">
+                <label>行动号召</label>
+                <input type="text" id="previewCTA" value="留言领取DSE英文不及格升学路径全图">
+            </div>
+        </div>
+
+        <div class="preview-result" id="previewResult" style="display:none;">
+            <div class="preview-header">
+                <h3>渲染结果</h3>
+                <span id="previewStats" class="text-muted"></span>
+            </div>
+            <div class="preview-tabs">
+                <button class="tab-btn active" onclick="switchPreviewTab('system')">System</button>
+                <button class="tab-btn" onclick="switchPreviewTab('user')">User</button>
+            </div>
+            <pre id="previewSystem" class="preview-content"></pre>
+            <pre id="previewUser" class="preview-content" style="display:none;"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- 样本文案库 -->
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-header">
+        <h2>样本文案库</h2>
+        <span class="text-muted">生成时注入完整文案供模型模仿断句节奏</span>
+    </div>
+    <div class="card-body">
+        <div class="sample-grid">
+            {% for name in samples %}
+            <div class="sample-card">
+                <h4>{{ name }}</h4>
+                <p class="text-muted small">点击展开查看完整文案内容</p>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="text-muted" style="margin-top: 1rem;">样本文案存储在 <code>vcw_copywriter/prompt_builder.py</code> 的 <code>SAMPLE_COPYWRITING</code> 字典中。</p>
+    </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/prompts.css') }}">
+
+<script src="{{ url_for('static', filename='js/prompts.js') }}"></script>
+{% endblock %}

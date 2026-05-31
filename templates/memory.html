@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}记忆库 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>迭代优化记忆库</h1>
+    <p>记录修改意见，下次生成时自动规避历史问题</p>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>添加记忆条目</h2>
+        </div>
+        <form action="{{ url_for('memory_add') }}" method="POST">
+            <div class="form-group">
+                <label>主题</label>
+                <input type="text" name="topic" placeholder="例如：DSE保底路径" required>
+            </div>
+            
+            <div class="form-group">
+                <label>问题描述 <span class="required">*</span></label>
+                <input type="text" name="issue_description" placeholder="具体描述问题" required>
+            </div>
+            
+            <div class="form-group">
+                <label>问题标签</label>
+                <div class="tag-selector">
+                    <label><input type="checkbox" name="issue_tags" value="数据时效"> 数据时效</label>
+                    <label><input type="checkbox" name="issue_tags" value="政策准确性"> 政策准确性</label>
+                    <label><input type="checkbox" name="issue_tags" value="语言风格"> 语言风格</label>
+                    <label><input type="checkbox" name="issue_tags" value="结构逻辑"> 结构逻辑</label>
+                    <label><input type="checkbox" name="issue_tags" value="平台适配"> 平台适配</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>修正方案</label>
+                <textarea name="correction_plan" rows="2" placeholder="如何修正这个问题"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>原文片段（可选）</label>
+                <textarea name="original_text" rows="2" placeholder="有问题的原文"></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">添加</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>统计报告</h2>
+        </div>
+        <div class="card-body">
+            <pre class="report-text">{{ report }}</pre>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>记忆条目列表</h2>
+    </div>
+    <div class="card-body">
+        {% if entries %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>主题</th>
+                    <th>问题描述</th>
+                    <th>标签</th>
+                    <th>修正方案</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr class="{% if entry.is_avoided %}avoided{% endif %}">
+                    <td><code>{{ entry.id }}</code></td>
+                    <td>{{ entry.topic }}</td>
+                    <td>{{ entry.issue_description }}</td>
+                    <td>
+                        {% for tag in entry.issue_tags %}
+                        <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>{{ entry.correction_plan or '-' }}</td>
+                    <td>
+                        {% if entry.is_avoided %}
+                        <span class="badge badge-success">已规避</span>
+                        {% else %}
+                        <span class="badge badge-warning">待规避</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            {% if not entry.is_avoided %}
+                            <form action="{{ url_for('memory_mark', entry_id=entry.id) }}" method="POST" style="display:inline">
+                                <button type="submit" class="btn btn-small">标记已规避</button>
+                            </form>
+                            {% endif %}
+                            <form action="{{ url_for('memory_delete', entry_id=entry.id) }}" method="POST" style="display:inline"
+                                  onsubmit="return confirm('确定删除此条目？')">
+                                <button type="submit" class="btn btn-small btn-danger">删除</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">记忆库为空，请添加第一条记录。</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

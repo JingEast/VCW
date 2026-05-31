@@ -1,0 +1,31 @@
+{
+  "llm": {
+    "provider": "openai",
+    "api_key": "sk-cx09GmOVRbPYYAUnbdm5erh6bOh815zSd3PGV50d5c28UEV0",
+    "base_url": "https://api.moonshot.cn/v1",
+    "model": "moonshot-v1-8k",
+    "temperature": 0.7,
+    "max_tokens": 2000,
+    "endpoints": [
+      {
+        "name": "kimi",
+        "api_key": "sk-cx09GmOVRbPYYAUnbdm5erh6bOh815zSd3PGV50d5c28UEV0",
+        "base_url": "https://api.moonshot.cn/v1",
+        "model": "moonshot-v1-8k",
+        "priority": 0
+      }
+    ]
+  },
+  "memory": {
+    "db_path": "data/memory_db.json",
+    "max_entries_per_topic": 10
+  },
+  "output": {
+    "save_dir": "data/generated",
+    "auto_save": true
+  },
+  "quality_check": {
+    "enabled": true,
+    "strict_mode": true
+  }
+}

@@ -1,0 +1,165 @@
+VCW/
+├── alembic/
+│   ├── versions/
+│   │   ├── 5ee13a0f45ba_initial_migration.py
+│   │   └── 7410015efd2f_add_prompt_versions_table.py
+│   ├── env.py
+│   ├── README
+│   └── script.py.mako
+├── app/
+│   ├── api/
+│   │   ├── routes/
+│   │   │   └── __init__.py
+│   │   ├── v1/
+│   │   │   ├── __init__.py
+│   │   │   ├── common.py
+│   │   │   ├── editor.py
+│   │   │   ├── generate.py
+│   │   │   ├── misc.py
+│   │   │   ├── prompts.py
+│   │   │   └── trends.py
+│   │   └── __init__.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── container.py
+│   │   ├── extensions.py
+│   │   └── logging_config.py
+│   ├── pages/
+│   │   ├── __init__.py
+│   │   ├── batch.py
+│   │   ├── config.py
+│   │   ├── editor.py
+│   │   ├── history.py
+│   │   ├── main.py
+│   │   ├── memory.py
+│   │   ├── prompts.py
+│   │   ├── resources.py
+│   │   └── trends.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── app_services.py
+│   │   └── prompt_service.py
+│   ├── __init__.py
+│   └── container.py
+├── docs/
+│   └── architecture/
+│       ├── analyzer.py
+│       ├── architecture_report.md
+│       ├── circular_dependencies.txt
+│       ├── detailed_imports.json
+│       ├── directory_tree.txt
+│       ├── duplicate_configs.txt
+│       ├── large_files.txt
+│       ├── module_dependencies.json
+│       └── subpackage_dependencies.json
+├── static/
+│   ├── css/
+│   │   ├── config.css
+│   │   ├── prompts.css
+│   │   ├── resources.css
+│   │   ├── style.css
+│   │   └── trends.css
+│   ├── js/
+│   │   ├── batch.js
+│   │   ├── config.js
+│   │   ├── editor.js
+│   │   ├── history.js
+│   │   ├── index.js
+│   │   ├── prompts.js
+│   │   ├── resources.js
+│   │   ├── result.js
+│   │   └── trends.js
+│   └── logo.jpg
+├── templates/
+│   ├── base.html
+│   ├── batch.html
+│   ├── config.html
+│   ├── editor.html
+│   ├── history.html
+│   ├── index.html
+│   ├── memory.html
+│   ├── prompts.html
+│   ├── resources.html
+│   ├── result.html
+│   └── trends.html
+├── tests/
+│   ├── conftest.py
+│   ├── test_api.py
+│   ├── test_errors.py
+│   ├── test_generate.py
+│   ├── test_routes.py
+│   └── test_service.py
+├── vcw_copywriter/
+│   ├── db/
+│   │   ├── repositories/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── job_repository.py
+│   │   │   ├── memory_repository.py
+│   │   │   ├── result_repository.py
+│   │   │   └── trend_repository.py
+│   │   ├── __init__.py
+│   │   ├── models.py
+│   │   └── session.py
+│   ├── prompts/
+│   │   ├── templates/
+│   │   │   ├── samples/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── scenes/
+│   │   │   │   ├── .gitkeep
+│   │   │   │   └── scene_custom_v1.md
+│   │   │   ├── sections/
+│   │   │   │   └── .gitkeep
+│   │   │   ├── styles/
+│   │   │   │   └── .gitkeep
+│   │   │   └── system/
+│   │   │       └── .gitkeep
+│   │   ├── __init__.py
+│   │   ├── composer.py
+│   │   ├── defaults.py
+│   │   ├── loader.py
+│   │   ├── registry.py
+│   │   └── schemas.py
+│   ├── scraper/
+│   │   ├── providers/
+│   │   │   ├── __init__.py
+│   │   │   ├── baidu_hot_provider.py
+│   │   │   ├── google_news_provider.py
+│   │   │   ├── html_provider.py
+│   │   │   ├── playwright_provider.py
+│   │   │   └── rss_provider.py
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── config.py
+│   │   ├── pipelines.py
+│   │   └── utils.py
+│   ├── __init__.py
+│   ├── auto_prompt.py
+│   ├── batch_generator.py
+│   ├── checker.py
+│   ├── config.py
+│   ├── editor.py
+│   ├── generator.py
+│   ├── knowledge_base.py
+│   ├── light_vector_search.py
+│   ├── main.py
+│   ├── memory.py
+│   ├── model_router.py
+│   ├── prompt_builder.py
+│   ├── scheduler.py
+│   ├── task_queue.py
+│   ├── trend_db.py
+│   ├── trend_scraper.py
+│   └── viral_analyzer.py
+├── alembic.ini
+├── wsgi.py
+├── ARCHITECTURE.md
+├── config.json
+├── generated_prompt.md
+├── migrate_from_json.py
+├── prompt.txt
+├── README.md
+├── requirements.txt
+├── run.py
+├── test_categories.txt
+└── 鹿鸣教育logo.JPG

@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}资源库 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>业务资源库</h1>
+    <p>香港中小学插班规划与 DSE 笔试备考的权威网站、关键词和服务流程</p>
+</div>
+
+<!-- Tab 导航 -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('sites')" id="tab-sites">
+        权威网站 ({{ hk_student_sites|length + transfer_sites|length + dse_sites|length }})
+    </button>
+    <button class="tab-btn" onclick="switchTab('keywords')" id="tab-keywords">
+        关键词词库 ({{ transfer_keywords|length + dse_keywords|length }})
+    </button>
+    <button class="tab-btn" onclick="switchTab('workflow')" id="tab-workflow">
+        服务流程
+    </button>
+</div>
+
+<!-- 网站资源 Tab -->
+<div id="panel-sites" class="tab-panel active">
+    <!-- 港籍升学规划网站 -->
+    <div class="section-title">
+        <span class="section-icon section-icon-hk">升学</span>
+        <h3>港籍学生升学规划 — 权威网站</h3>
+    </div>
+    <div class="site-grid">
+        {% for site in hk_student_sites %}
+        <div class="site-card">
+            <div class="site-card-header">
+                <span class="site-category site-category-hk">{{ site.category }}</span>
+            </div>
+            <h4 class="site-name">{{ site.name }}</h4>
+            <a href="{{ site.url }}" target="_blank" class="site-link site-link-hk">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                访问网站
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 插班规划网站 -->
+    <div class="section-title">
+        <span class="section-icon">插班</span>
+        <h3>香港中小学插班规划 — 权威网站</h3>
+    </div>
+    <div class="site-grid">
+        {% for site in transfer_sites %}
+        <div class="site-card">
+            <div class="site-card-header">
+                <span class="site-category">{{ site.category }}</span>
+            </div>
+            <h4 class="site-name">{{ site.name }}</h4>
+            <a href="{{ site.url }}" target="_blank" class="site-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                访问网站
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- DSE备考网站 -->
+    <div class="section-title">
+        <span class="section-icon section-icon-dse">DSE</span>
+        <h3>DSE 笔试备考 — 权威网站</h3>
+    </div>
+    <div class="site-grid">
+        {% for site in dse_sites %}
+        <div class="site-card">
+            <div class="site-card-header">
+                <span class="site-category site-category-dse">{{ site.category }}</span>
+            </div>
+            <h4 class="site-name">{{ site.name }}</h4>
+            <a href="{{ site.url }}" target="_blank" class="site-link site-link-dse">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                访问网站
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 关键词 Tab -->
+<div id="panel-keywords" class="tab-panel">
+    <div class="keyword-section">
+        <div class="keyword-header">
+            <span class="keyword-badge keyword-badge-hk">港籍升学规划</span>
+            <span class="keyword-count">{{ hk_student_keywords|length }} 个关键词</span>
+        </div>
+        <div class="keyword-cloud">
+            {% for kw in hk_student_keywords %}
+            <span class="keyword-tag keyword-tag-hk">{{ kw }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="keyword-section">
+        <div class="keyword-header">
+            <span class="keyword-badge keyword-badge-transfer">插班规划</span>
+            <span class="keyword-count">{{ transfer_keywords|length }} 个关键词</span>
+        </div>
+        <div class="keyword-cloud">
+            {% for kw in transfer_keywords %}
+            <span class="keyword-tag keyword-tag-transfer">{{ kw }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="keyword-section">
+        <div class="keyword-header">
+            <span class="keyword-badge keyword-badge-dse">DSE 备考</span>
+            <span class="keyword-count">{{ dse_keywords|length }} 个关键词</span>
+        </div>
+        <div class="keyword-cloud">
+            {% for kw in dse_keywords %}
+            <span class="keyword-tag keyword-tag-dse">{{ kw }}</span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- 服务流程 Tab -->
+<div id="panel-workflow" class="tab-panel">
+    <div class="workflow-tabs">
+        <button class="wf-tab active" onclick="switchWorkflow('hk')" id="wf-tab-hk">港籍升学规划流程</button>
+        <button class="wf-tab" onclick="switchWorkflow('transfer')" id="wf-tab-transfer">插班规划流程</button>
+        <button class="wf-tab" onclick="switchWorkflow('dse')" id="wf-tab-dse">DSE 备考流程</button>
+    </div>
+
+    <div id="wf-panel-hk" class="wf-panel active">
+        <div class="timeline">
+            {% set hk_steps = [
+                ("获客阶段", "精准触达，建立专业信任", "输出港籍升学干货（DSE vs 联考对比、港八大录取数据、内地985港籍招生政策），收集家长信息，提供免费升学潜力评估。"),
+                ("咨询转化", "需求深挖，定制方案", "明确学生港籍身份、目标升学方向，评估DSE/联考/独立招生/JUPAS各通道可行性，制定专属升学规划方案。"),
+                ("服务执行", "全程跟进，精准落地", "学业评估与定位，确定主申通道和备选通道，提供备考辅导，协助完成报名申请，实时跟进政策动态。"),
+                ("交付阶段", "达成升学目标，完成录取", "跟踪各通道录取结果，协助确认录取，提供入学衔接指导，提交升学规划总结报告。"),
+                ("后续维护", "长期陪伴，口碑运营", "入学后定期询问适应情况，推送各阶段升学资讯，邀请家长分享体验，推荐有需求的亲友。")
+            ] %}
+            {% for title, subtitle, desc in hk_steps %}
+            <div class="timeline-item">
+                <div class="timeline-marker timeline-marker-hk">{{ loop.index }}</div>
+                <div class="timeline-content">
+                    <h4>{{ title }} <span class="timeline-subtitle">— {{ subtitle }}</span></h4>
+                    <p>{{ desc }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="wf-panel-transfer" class="wf-panel">
+        <div class="timeline">
+            {% set transfer_steps = [
+                ("获客阶段", "引流触达，建立信任", "通过线上社群、小红书/抖音/公众号、线下教育展会输出插班干货，收集家长信息，提供免费初步评估，分享成功案例。"),
+                ("咨询转化", "需求深挖，达成合作", "深度沟通明确插班年级、目标区域、学校类型，进行可行性评估，定制个性化方案，签订合同。"),
+                ("服务执行", "落地推进，精准对接", "实时跟进政策与学校插班规则，指导材料准备与报名，提供插班备考辅导，与学校招生办对接。"),
+                ("交付阶段", "完成插班，确认结果", "查询录取结果，协助注册缴费，提供入学衔接指导，提交服务总结报告。"),
+                ("后续跟进", "口碑维护，长期服务", "入学后定期询问适应情况，推送政策信息，邀请分享体验，挖掘转介绍。")
+            ] %}
+            {% for title, subtitle, desc in transfer_steps %}
+            <div class="timeline-item">
+                <div class="timeline-marker">{{ loop.index }}</div>
+                <div class="timeline-content">
+                    <h4>{{ title }} <span class="timeline-subtitle">— {{ subtitle }}</span></h4>
+                    <p>{{ desc }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="wf-panel-dse" class="wf-panel">
+        <div class="timeline">
+            {% set dse_steps = [
+                ("获客阶段", "触达目标群体，建立信任", "通过升学社群、小红书/抖音/公众号输出备考干货、真题解析，提供免费基础测评，分享提分案例。"),
+                ("咨询转化", "深挖需求，定制方案", "明确备考阶段、目标分数、薄弱科目，进行全科测评，制定专属备考辅导方案。"),
+                ("服务执行", "落地备考辅导，全程跟进", "匹配港籍名师，搭建分阶段课程体系，日常教学+个性化辅导，定期模考与学情分析。"),
+                ("交付阶段", "完成备考目标，协助应考", "考前冲刺辅导，协助报名与行程规划，成绩查询与效果评估，提交服务总结报告。"),
+                ("后续维护", "口碑运营，长期服务", "提供升学指导与志愿填报建议，推送考情与升学资讯，邀请分享体验，挖掘复购与转介绍。")
+            ] %}
+            {% for title, subtitle, desc in dse_steps %}
+            <div class="timeline-item">
+                <div class="timeline-marker timeline-marker-dse">{{ loop.index }}</div>
+                <div class="timeline-content">
+                    <h4>{{ title }} <span class="timeline-subtitle">— {{ subtitle }}</span></h4>
+                    <p>{{ desc }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/resources.css') }}">
+
+<script src="{{ url_for('static', filename='js/resources.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}生成文案 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>生成口播文案</h1>
+    <p>填写以下参数，AI将基于记忆库中的历史修改意见生成高质量文案</p>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>文案参数</h2>
+        </div>
+        <form action="{{ url_for('generate') }}" method="POST" id="generateForm">
+            <input type="hidden" id="scene" name="scene" value="{{ prefill.scene or '' }}">
+
+            <div class="form-group">
+                <label for="topic">主题 <span class="required">*</span></label>
+                <input type="text" id="topic" name="topic" required
+                       placeholder="例如：DSE考砸后的保底路径"
+                       value="{{ prefill.topic or 'DSE考砸后的保底路径' }}">
+            </div>
+
+            <div class="form-group">
+                <label for="audience">目标受众</label>
+                <select id="audience" name="audience">
+                    <option value="港宝家长" selected>港宝家长</option>
+                    <option value="DSE考生">DSE考生</option>
+                    <option value="双非港宝家长">双非港宝家长</option>
+                    <option value="永居港宝家长">永居港宝家长</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="core_data">核心数据（务必标注年份）</label>
+                <textarea id="core_data" name="core_data" rows="3"
+                          placeholder="例如：DSE 2025年报考人数约5万人；港八大录取率约21%">{{ prefill.core_data or 'DSE 2025年报考人数约5万人；港八大录取率约21%' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="policy_points">政策要点（标注有效期）</label>
+                <textarea id="policy_points" name="policy_points" rows="3"
+                          placeholder="例如：副学士六科全2分可读；内地暨南大学独立招生英文2分也收（2025-2026学年有效）">{{ prefill.policy_points or '副学士六科全2分可读；内地暨南大学独立招生英文2分也收（2025-2026学年有效）' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="hidden_path">隐藏路径（确认当前仍有效）</label>
+                <textarea id="hidden_path" name="hidden_path" rows="2"
+                          placeholder="例如：英国澳洲部分大学接受DSE英文2分+雅思5.5">{{ prefill.hidden_path or '英国澳洲部分大学接受DSE英文2分+雅思5.5（需确认目标院校最新语言要求）' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="call_to_action">行动号召</label>
+                <input type="text" id="call_to_action" name="call_to_action"
+                       placeholder="例如：留言领取'DSE英文不及格升学路径全图'"
+                       value="{{ prefill.call_to_action or '留言领取\'DSE英文不及格升学路径全图\'' }}">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="sample_ref">参考样本</label>
+                    <select id="sample_ref" name="sample_ref">
+                        <option value="">（无）</option>
+                        <option value="样本一">样本一：DSE考砸保底路径</option>
+                        <option value="样本二">样本二：DSE vs 联考对比</option>
+                        <option value="样本三">样本三：宝藏专业推荐</option>
+                        <option value="样本四">样本四：JUPAS志愿填报</option>
+                        <option value="样本五">样本五：M1/M2选科策略</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="extra_requirements">额外要求</label>
+                <textarea id="extra_requirements" name="extra_requirements" rows="2"
+                          placeholder="例如：请生成3个不同角度的变体"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large">
+                    生成文案
+                </button>
+                <button type="button" class="btn btn-accent" onclick="startStreamGenerate()">
+                    实时生成
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="startAsyncGenerate()">
+                    后台生成
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="previewPrompt()">
+                    预览提示词
+                </button>
+            </div>
+            <div class="draft-status" id="draftStatus"></div>
+        </form>
+
+        <!-- 流式输出区域 -->
+        <div id="streamArea" class="stream-area" style="display:none;">
+            <div class="stream-header">
+                <span class="stream-badge">实时生成中</span>
+                <span id="streamMeta" class="stream-meta"></span>
+                <button type="button" class="btn btn-small btn-danger" onclick="stopStream()">停止</button>
+            </div>
+            <div id="streamContent" class="stream-content"></div>
+            <div class="stream-actions" id="streamActions" style="display:none;">
+                <button type="button" class="btn btn-primary" onclick="saveStreamResult()">保存到精修库</button>
+                <button type="button" class="btn btn-secondary" onclick="copyStreamResult()">复制文案</button>
+            </div>
+        </div>
+
+        <!-- 异步任务面板 -->
+        <div id="asyncPanel" class="async-panel" style="display:none;">
+            <div class="async-header">
+                <h4>后台任务</h4>
+                <button type="button" class="btn btn-small btn-danger" onclick="cancelAsyncTask()">取消</button>
+            </div>
+            <div class="async-progress">
+                <div class="progress-bar">
+                    <div id="asyncProgressBar" class="progress-fill" style="width:0%"></div>
+                </div>
+                <span id="asyncProgressText" class="progress-text">0%</span>
+            </div>
+            <p id="asyncMessage" class="async-message">准备中...</p>
+            <div id="asyncResult" class="async-result" style="display:none;">
+                <p class="text-success">生成完成！</p>
+                <a id="asyncResultLink" href="#" class="btn btn-primary">查看结果</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <!-- 任务9: 数据看板 -->
+        <div class="card">
+            <div class="card-header">
+                <h3>生成统计</h3>
+            </div>
+            <div class="card-body">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-num">{{ stats.today }}</span>
+                        <span class="stat-label">今日</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num">{{ stats.week }}</span>
+                        <span class="stat-label">本周</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num">{{ stats.total }}</span>
+                        <span class="stat-label">总计</span>
+                    </div>
+                </div>
+                {% if stats.top_topics %}
+                <div class="top-topics">
+                    <p class="text-muted small" style="margin-bottom:0.5rem">热门主题 TOP5</p>
+                    {% for topic, count in stats.top_topics %}
+                    <div class="topic-bar">
+                        <span class="topic-name" title="{{ topic }}">{{ topic[:12] }}{% if topic|length > 12 %}...{% endif %}</span>
+                        <span class="topic-count">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>记忆库状态</h3>
+            </div>
+            <div class="card-body">
+                <p>当前记忆库条目数：<strong>{{ entry_count }}</strong></p>
+                <p>待规避问题数：<strong>{{ pending_count }}</strong></p>
+                <a href="{{ url_for('memory_page') }}" class="btn btn-small">管理记忆库</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>最近生成的文案</h3>
+            </div>
+            <div class="card-body">
+                {% if recent_files %}
+                    <ul class="file-list">
+                        {% for f in recent_files %}
+                        <li>
+                            <span class="file-name" title="{{ f.name }}">{{ f.name[:25] }}{% if f.name|length > 25 %}...{% endif %}</span>
+                            <span class="file-meta">{{ f.time }} | {{ f.size }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ url_for('history_page') }}" class="btn btn-small">查看全部</a>
+                {% else %}
+                    <p class="text-muted">暂无生成记录</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card info-card">
+            <div class="card-header">
+                <h3>使用提示</h3>
+            </div>
+            <div class="card-body">
+                <ul class="tips-list">
+                    <li>所有数据请标注年份（如"2025年"），避免模糊表述</li>
+                    <li>政策要点请标注有效期</li>
+                    <li>系统会自动关联记忆库中的历史修改意见</li>
+                    <li>生成后可记录修改意见，下次自动规避</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 提示词预览模态框 -->
+<div id="promptModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>提示词预览</h3>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="prompt-stats" id="promptStats"></div>
+            <div class="prompt-tabs">
+                <button class="tab-btn active" onclick="switchTab('system')">System Prompt</button>
+                <button class="tab-btn" onclick="switchTab('user')">User Prompt</button>
+            </div>
+            <pre id="systemPrompt" class="prompt-preview"></pre>
+            <pre id="userPrompt" class="prompt-preview" style="display:none"></pre>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+{% endblock %}

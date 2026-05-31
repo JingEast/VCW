@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}精修编辑器 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>精修编辑器</h1>
+    <p>人工润色文案，一键去 AI 味，保存最终版本</p>
+</div>
+
+<div class="editor-layout">
+    <div class="editor-main">
+        <div class="card">
+            <div class="card-header">
+                <h2>编辑区</h2>
+                <div class="header-actions">
+                    <span class="text-muted" id="charCount">0 字</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('editor_save') }}" method="POST" id="editorForm">
+                    <input type="hidden" name="draft_id" value="{{ draft_id }}">
+                    
+                    <div class="form-group">
+                        <label>文案标题/主题</label>
+                        <input type="text" name="topic" value="{{ topic }}" class="form-control">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>精修文案</label>
+                        <textarea id="editContent" name="content" rows="20" class="editor-textarea"
+                                  placeholder="在此编辑文案...">{{ content }}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>修改备注（可选）</label>
+                        <input type="text" name="edit_note" placeholder="例如：调整了第三段语气，增加了感叹词">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存精修版</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetToOriginal()">恢复原文</button>
+                        <button type="button" class="btn btn-success" onclick="finalizeDraft()">标记为最终版</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="editor-sidebar">
+        <div class="card">
+            <div class="card-header">
+                <h3>原文对比</h3>
+            </div>
+            <div class="card-body">
+                <pre class="original-preview" id="originalContent">{{ original }}</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>去 AI 味优化</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">调用 AI 对当前文案进行最后一轮口语化润色</p>
+                <button type="button" class="btn btn-primary btn-small" onclick="deAI()" id="deAIBtn">
+                    一键去 AI 味
+                </button>
+                <div id="deAIStatus" class="text-muted small" style="margin-top:8px"></div>
+            </div>
+        </div>
+
+        <div class="card info-card">
+            <div class="card-header">
+                <h3>精修检查清单</h3>
+            </div>
+            <div class="card-body">
+                <ul class="checklist">
+                    <li><input type="checkbox" id="c1"> <label for="c1">口语化——像对着镜头说话</label></li>
+                    <li><input type="checkbox" id="c2"> <label for="c2">短句为主——一句一段</label></li>
+                    <li><input type="checkbox" id="c3"> <label for="c3">数据准确——年份+来源</label></li>
+                    <li><input type="checkbox" id="c4"> <label for="c4">情绪起伏——焦虑→希望</label></li>
+                    <li><input type="checkbox" id="c5"> <label for="c5">CTA 明确——关注/留言/私信</label></li>
+                    <li><input type="checkbox" id="c6"> <label for="c6">无 AI 痕迹——去掉学术连接词</label></li>
+                    <li><input type="checkbox" id="c7"> <label for="c7">无元信息——不出现"AI""生成"</label></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>window.__EDITOR_DATA__ = { original: {{ original|tojson }} };</script>
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+{% endblock %}

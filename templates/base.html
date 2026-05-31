@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}港籍升学文案生成器{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('index') }}" class="nav-brand" title="返回首页">
+            <img src="{{ url_for('static', filename='logo.jpg') }}" alt="鹿鸣无忧" class="nav-logo">
+            <span class="nav-title">港籍升学文案生成器</span>
+        </a>
+        <ul class="nav-menu">
+            <li><a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">生成文案</a></li>
+            <li><a href="{{ url_for('trends_page') }}" class="{% if request.endpoint == 'trends_page' %}active{% endif %}">热点发现</a></li>
+            <li><a href="{{ url_for('batch_page') }}" class="{% if request.endpoint in ['batch_page', 'batch_generate'] %}active{% endif %}">批量生成</a></li>
+            <li><a href="{{ url_for('memory_page') }}" class="{% if request.endpoint == 'memory_page' %}active{% endif %}">记忆库</a></li>
+            <li><a href="{{ url_for('history_page') }}" class="{% if request.endpoint == 'history_page' %}active{% endif %}">历史文案</a></li>
+            <li><a href="{{ url_for('resources_page') }}" class="{% if request.endpoint == 'resources_page' %}active{% endif %}">资源库</a></li>
+            <li><a href="{{ url_for('prompts_page') }}" class="{% if request.endpoint == 'prompts_page' %}active{% endif %}">Prompt编辑</a></li>
+            <li><a href="{{ url_for('config_page') }}" class="{% if request.endpoint == 'config_page' %}active{% endif %}">配置</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>港籍升学热点文案批量生成器 v1.0 | 基于AI + 记忆机制 + 时效性保障</p>
+    </footer>
+</body>
+</html>

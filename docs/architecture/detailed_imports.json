@@ -1,0 +1,861 @@
+{
+  "alembic/env.py": {
+    "absolute": [
+      "os",
+      "sys",
+      "logging.config",
+      "sqlalchemy",
+      "alembic",
+      "vcw_copywriter.db.models",
+      "vcw_copywriter.db.session"
+    ],
+    "relative": []
+  },
+  "alembic/versions/5ee13a0f45ba_initial_migration.py": {
+    "absolute": [
+      "typing",
+      "alembic",
+      "sqlalchemy"
+    ],
+    "relative": []
+  },
+  "alembic/versions/7410015efd2f_add_prompt_versions_table.py": {
+    "absolute": [
+      "typing",
+      "alembic",
+      "sqlalchemy",
+      "pgvector.sqlalchemy"
+    ],
+    "relative": []
+  },
+  "app/__init__.py": {
+    "absolute": [
+      "os",
+      "traceback",
+      "uuid",
+      "flask",
+      "app.core.container",
+      "app.core.logging_config",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.pages",
+      "app.api.v1",
+      "app.api.v1",
+      "app.api.v1",
+      "app.api.v1",
+      "app.api.v1",
+      "flask.wrappers",
+      "flask"
+    ],
+    "relative": []
+  },
+  "app/api/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/api/routes/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/api/v1/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/api/v1/common.py": {
+    "absolute": [
+      "uuid",
+      "flask",
+      "typing"
+    ],
+    "relative": []
+  },
+  "app/api/v1/editor.py": {
+    "absolute": [
+      "flask",
+      "app.core.container",
+      "app.api.v1.common",
+      "vcw_copywriter.generator"
+    ],
+    "relative": []
+  },
+  "app/api/v1/generate.py": {
+    "absolute": [
+      "flask",
+      "app.core.container",
+      "app.services.prompt_service",
+      "vcw_copywriter.model_router",
+      "vcw_copywriter.generator",
+      "vcw_copywriter.task_queue",
+      "app.api.v1.common",
+      "vcw_copywriter.checker"
+    ],
+    "relative": []
+  },
+  "app/api/v1/misc.py": {
+    "absolute": [
+      "flask",
+      "app.core.container",
+      "app.api.v1.common",
+      "app.services.prompt_service",
+      "vcw_copywriter.model_router"
+    ],
+    "relative": []
+  },
+  "app/api/v1/prompts.py": {
+    "absolute": [
+      "json",
+      "datetime",
+      "pathlib",
+      "flask",
+      "app.core.container",
+      "app.api.v1.common",
+      "vcw_copywriter.prompt_builder",
+      "vcw_copywriter.prompt_builder",
+      "vcw_copywriter.knowledge_base"
+    ],
+    "relative": []
+  },
+  "app/api/v1/trends.py": {
+    "absolute": [
+      "flask",
+      "app.core.container",
+      "app.api.v1.common"
+    ],
+    "relative": []
+  },
+  "app/container.py": {
+    "absolute": [
+      "threading",
+      "typing"
+    ],
+    "relative": []
+  },
+  "app/core/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/core/container.py": {
+    "absolute": [
+      "__future__",
+      "os",
+      "pathlib",
+      "typing",
+      "dependency_injector",
+      "vcw_copywriter.config",
+      "vcw_copywriter.memory",
+      "vcw_copywriter.trend_db",
+      "vcw_copywriter.editor",
+      "vcw_copywriter.scheduler",
+      "vcw_copywriter.viral_analyzer",
+      "flask"
+    ],
+    "relative": []
+  },
+  "app/core/extensions.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/core/logging_config.py": {
+    "absolute": [
+      "logging",
+      "logging.handlers",
+      "os",
+      "uuid",
+      "typing",
+      "flask",
+      "flask",
+      "flask"
+    ],
+    "relative": []
+  },
+  "app/pages/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/pages/batch.py": {
+    "absolute": [
+      "flask",
+      "app.core.container",
+      "vcw_copywriter.prompt_builder",
+      "vcw_copywriter.batch_generator"
+    ],
+    "relative": []
+  },
+  "app/pages/config.py": {
+    "absolute": [
+      "flask",
+      "app.core.container"
+    ],
+    "relative": []
+  },
+  "app/pages/editor.py": {
+    "absolute": [
+      "urllib.parse",
+      "flask",
+      "app.core.container"
+    ],
+    "relative": []
+  },
+  "app/pages/history.py": {
+    "absolute": [
+      "datetime",
+      "pathlib",
+      "flask",
+      "app.core.container"
+    ],
+    "relative": []
+  },
+  "app/pages/main.py": {
+    "absolute": [
+      "datetime",
+      "pathlib",
+      "flask",
+      "app.core.container",
+      "vcw_copywriter.prompt_builder",
+      "vcw_copywriter.generator",
+      "vcw_copywriter.checker"
+    ],
+    "relative": []
+  },
+  "app/pages/memory.py": {
+    "absolute": [
+      "flask",
+      "app.core.container"
+    ],
+    "relative": []
+  },
+  "app/pages/prompts.py": {
+    "absolute": [
+      "flask",
+      "vcw_copywriter.prompt_builder",
+      "vcw_copywriter.prompt_builder"
+    ],
+    "relative": []
+  },
+  "app/pages/resources.py": {
+    "absolute": [
+      "flask",
+      "vcw_copywriter.knowledge_base"
+    ],
+    "relative": []
+  },
+  "app/pages/trends.py": {
+    "absolute": [
+      "flask",
+      "app.core.container",
+      "vcw_copywriter.trend_scraper",
+      "vcw_copywriter.auto_prompt",
+      "logging"
+    ],
+    "relative": []
+  },
+  "app/services/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "app/services/app_services.py": {
+    "absolute": [
+      "os",
+      "pathlib",
+      "app.container",
+      "vcw_copywriter.config",
+      "vcw_copywriter.memory",
+      "vcw_copywriter.trend_db",
+      "vcw_copywriter.editor",
+      "vcw_copywriter.scheduler",
+      "vcw_copywriter.viral_analyzer"
+    ],
+    "relative": []
+  },
+  "app/services/prompt_service.py": {
+    "absolute": [
+      "vcw_copywriter.prompt_builder",
+      "app.core.container"
+    ],
+    "relative": []
+  },
+  "wsgi.py": {
+    "absolute": [
+      "os",
+      "sys",
+      "app"
+    ],
+    "relative": []
+  },
+  "docs/architecture/analyzer.py": {
+    "absolute": [
+      "ast",
+      "json",
+      "os",
+      "collections",
+      "pathlib"
+    ],
+    "relative": []
+  },
+  "migrate_from_json.py": {
+    "absolute": [
+      "os",
+      "sys",
+      "pathlib",
+      "vcw_copywriter.db.session",
+      "vcw_copywriter.db.models",
+      "vcw_copywriter.db.repositories.trend_repository",
+      "json",
+      "vcw_copywriter.db.session",
+      "vcw_copywriter.db.models",
+      "vcw_copywriter.db.repositories.memory_repository",
+      "json",
+      "vcw_copywriter.db.session",
+      "vcw_copywriter.db.models",
+      "sqlite3"
+    ],
+    "relative": []
+  },
+  "run.py": {
+    "absolute": [
+      "sys",
+      "pathlib",
+      "vcw_copywriter.main"
+    ],
+    "relative": []
+  },
+  "tests/conftest.py": {
+    "absolute": [
+      "os",
+      "pytest",
+      "flask",
+      "app",
+      "werkzeug.exceptions",
+      "vcw_copywriter.db.session",
+      "vcw_copywriter.db.session",
+      "app.core.container"
+    ],
+    "relative": []
+  },
+  "tests/test_api.py": {
+    "absolute": [
+      "pytest",
+      "unittest.mock"
+    ],
+    "relative": []
+  },
+  "tests/test_errors.py": {
+    "absolute": [
+      "pytest"
+    ],
+    "relative": []
+  },
+  "tests/test_generate.py": {
+    "absolute": [
+      "app.pages.main",
+      "vcw_copywriter.generator",
+      "vcw_copywriter.editor"
+    ],
+    "relative": []
+  },
+  "tests/test_routes.py": {
+    "absolute": [
+      "pytest"
+    ],
+    "relative": []
+  },
+  "tests/test_service.py": {
+    "absolute": [
+      "json",
+      "datetime",
+      "unittest.mock",
+      "pytest",
+      "vcw_copywriter.editor"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "vcw_copywriter/auto_prompt.py": {
+    "absolute": [
+      "re",
+      "datetime",
+      "typing"
+    ],
+    "relative": [
+      ".viral_analyzer",
+      ".prompts"
+    ]
+  },
+  "vcw_copywriter/batch_generator.py": {
+    "absolute": [
+      "time",
+      "typing"
+    ],
+    "relative": [
+      ".generator",
+      ".checker"
+    ]
+  },
+  "vcw_copywriter/checker.py": {
+    "absolute": [
+      "re",
+      "typing"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/config.py": {
+    "absolute": [
+      "json",
+      "os",
+      "pathlib"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/db/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "vcw_copywriter/db/models.py": {
+    "absolute": [
+      "datetime",
+      "typing",
+      "pgvector.sqlalchemy",
+      "sqlalchemy",
+      "sqlalchemy.orm",
+      "datetime"
+    ],
+    "relative": [
+      "..scraper.utils",
+      "..scraper.utils"
+    ]
+  },
+  "vcw_copywriter/db/repositories/__init__.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "vcw_copywriter/db/repositories/base.py": {
+    "absolute": [
+      "typing",
+      "sqlalchemy.orm"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/db/repositories/job_repository.py": {
+    "absolute": [
+      "json",
+      "time",
+      "datetime",
+      "typing",
+      "sqlalchemy.orm",
+      "sqlalchemy",
+      "uuid",
+      "sqlalchemy"
+    ],
+    "relative": [
+      ".base",
+      "..models"
+    ]
+  },
+  "vcw_copywriter/db/repositories/memory_repository.py": {
+    "absolute": [
+      "typing",
+      "sqlalchemy.orm",
+      "uuid",
+      "sqlalchemy"
+    ],
+    "relative": [
+      ".base",
+      "..models"
+    ]
+  },
+  "vcw_copywriter/db/repositories/result_repository.py": {
+    "absolute": [
+      "typing",
+      "sqlalchemy.orm",
+      "sqlalchemy"
+    ],
+    "relative": [
+      ".base",
+      "..models"
+    ]
+  },
+  "vcw_copywriter/db/repositories/trend_repository.py": {
+    "absolute": [
+      "re",
+      "datetime",
+      "typing",
+      "sqlalchemy.orm",
+      "sqlalchemy",
+      "email.utils",
+      "uuid",
+      "sqlalchemy"
+    ],
+    "relative": [
+      ".base",
+      "..models"
+    ]
+  },
+  "vcw_copywriter/db/session.py": {
+    "absolute": [
+      "os",
+      "sqlalchemy",
+      "sqlalchemy.orm"
+    ],
+    "relative": [
+      ".models"
+    ]
+  },
+  "vcw_copywriter/editor.py": {
+    "absolute": [
+      "re",
+      "json",
+      "datetime",
+      "pathlib",
+      "typing"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/generator.py": {
+    "absolute": [
+      "os",
+      "re",
+      "json",
+      "time",
+      "datetime",
+      "pathlib",
+      "typing",
+      "openai"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/knowledge_base.py": {
+    "absolute": [
+      "typing"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/light_vector_search.py": {
+    "absolute": [
+      "math",
+      "re",
+      "typing"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/main.py": {
+    "absolute": [
+      "os",
+      "sys",
+      "io",
+      "json",
+      "pathlib",
+      "typing"
+    ],
+    "relative": [
+      ".config",
+      ".memory",
+      ".prompt_builder",
+      ".generator",
+      ".checker"
+    ]
+  },
+  "vcw_copywriter/memory.py": {
+    "absolute": [
+      "json",
+      "uuid",
+      "datetime",
+      "pathlib",
+      "typing",
+      "filelock"
+    ],
+    "relative": [
+      ".light_vector_search",
+      ".db.session",
+      ".db.repositories.memory_repository",
+      ".db.models",
+      ".db.models",
+      ".scraper.utils"
+    ]
+  },
+  "vcw_copywriter/model_router.py": {
+    "absolute": [
+      "time",
+      "json",
+      "datetime",
+      "pathlib",
+      "typing",
+      "dataclasses",
+      "openai"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/prompt_builder.py": {
+    "absolute": [
+      "typing"
+    ],
+    "relative": [
+      ".memory",
+      ".knowledge_base",
+      ".prompts.defaults",
+      ".prompts",
+      ".prompts"
+    ]
+  },
+  "vcw_copywriter/prompts/__init__.py": {
+    "absolute": [],
+    "relative": [
+      ".schemas",
+      ".registry",
+      ".composer",
+      ".loader"
+    ]
+  },
+  "vcw_copywriter/prompts/composer.py": {
+    "absolute": [
+      "typing"
+    ],
+    "relative": [
+      ".registry",
+      ".schemas",
+      ".loader",
+      "..knowledge_base",
+      "..viral_analyzer"
+    ]
+  },
+  "vcw_copywriter/prompts/defaults.py": {
+    "absolute": [],
+    "relative": [
+      ".registry",
+      ".schemas"
+    ]
+  },
+  "vcw_copywriter/prompts/loader.py": {
+    "absolute": [
+      "json",
+      "re",
+      "pathlib",
+      "typing",
+      "yaml"
+    ],
+    "relative": [
+      ".schemas",
+      ".registry",
+      ".defaults"
+    ]
+  },
+  "vcw_copywriter/prompts/registry.py": {
+    "absolute": [
+      "typing"
+    ],
+    "relative": [
+      ".schemas"
+    ]
+  },
+  "vcw_copywriter/prompts/schemas.py": {
+    "absolute": [
+      "dataclasses",
+      "typing",
+      "datetime"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/scheduler.py": {
+    "absolute": [
+      "json",
+      "time",
+      "threading",
+      "datetime",
+      "pathlib",
+      "typing"
+    ],
+    "relative": [
+      ".trend_scraper",
+      ".trend_db"
+    ]
+  },
+  "vcw_copywriter/scraper/__init__.py": {
+    "absolute": [
+      "json",
+      "datetime",
+      "pathlib",
+      "typing",
+      "concurrent.futures"
+    ],
+    "relative": [
+      ".base",
+      ".pipelines",
+      ".providers.rss_provider",
+      ".providers.html_provider",
+      ".providers.google_news_provider",
+      ".providers.baidu_hot_provider",
+      ".providers.playwright_provider"
+    ]
+  },
+  "vcw_copywriter/scraper/base.py": {
+    "absolute": [
+      "re",
+      "time",
+      "urllib.request",
+      "urllib.parse",
+      "typing"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/scraper/config.py": {
+    "absolute": [],
+    "relative": []
+  },
+  "vcw_copywriter/scraper/pipelines.py": {
+    "absolute": [
+      "concurrent.futures",
+      "datetime",
+      "typing"
+    ],
+    "relative": [
+      ".utils",
+      ".config",
+      ".base"
+    ]
+  },
+  "vcw_copywriter/scraper/providers/__init__.py": {
+    "absolute": [],
+    "relative": [
+      ".rss_provider",
+      ".html_provider",
+      ".google_news_provider",
+      ".baidu_hot_provider",
+      ".playwright_provider"
+    ]
+  },
+  "vcw_copywriter/scraper/providers/baidu_hot_provider.py": {
+    "absolute": [
+      "re",
+      "urllib.parse",
+      "datetime",
+      "typing"
+    ],
+    "relative": [
+      "..base",
+      "..utils"
+    ]
+  },
+  "vcw_copywriter/scraper/providers/google_news_provider.py": {
+    "absolute": [
+      "re",
+      "urllib.parse",
+      "xml.etree.ElementTree",
+      "datetime",
+      "typing"
+    ],
+    "relative": [
+      "..base",
+      "..config",
+      "..utils"
+    ]
+  },
+  "vcw_copywriter/scraper/providers/html_provider.py": {
+    "absolute": [
+      "re",
+      "urllib.parse",
+      "datetime",
+      "typing",
+      "concurrent.futures"
+    ],
+    "relative": [
+      "..base",
+      "..config",
+      "..utils"
+    ]
+  },
+  "vcw_copywriter/scraper/providers/playwright_provider.py": {
+    "absolute": [
+      "re",
+      "urllib.parse",
+      "datetime",
+      "typing",
+      "playwright.sync_api"
+    ],
+    "relative": [
+      "..base",
+      "..config",
+      "..utils"
+    ]
+  },
+  "vcw_copywriter/scraper/providers/rss_provider.py": {
+    "absolute": [
+      "re",
+      "xml.etree.ElementTree",
+      "datetime",
+      "typing",
+      "concurrent.futures"
+    ],
+    "relative": [
+      "..base",
+      "..config",
+      "..utils"
+    ]
+  },
+  "vcw_copywriter/scraper/utils.py": {
+    "absolute": [
+      "re",
+      "urllib.parse",
+      "datetime",
+      "email.utils",
+      "typing"
+    ],
+    "relative": []
+  },
+  "vcw_copywriter/task_queue.py": {
+    "absolute": [
+      "json",
+      "threading",
+      "datetime",
+      "typing"
+    ],
+    "relative": [
+      ".db.session",
+      ".db.repositories.job_repository"
+    ]
+  },
+  "vcw_copywriter/trend_db.py": {
+    "absolute": [
+      "json",
+      "uuid",
+      "datetime",
+      "email.utils",
+      "pathlib",
+      "typing",
+      "filelock",
+      "re"
+    ],
+    "relative": [
+      ".db.session",
+      ".db.repositories.trend_repository",
+      ".db.models",
+      ".db.models",
+      ".db.models",
+      ".db.models",
+      ".scraper.utils"
+    ]
+  },
+  "vcw_copywriter/trend_scraper.py": {
+    "absolute": [],
+    "relative": [
+      ".scraper",
+      ".scraper.config"
+    ]
+  },
+  "vcw_copywriter/viral_analyzer.py": {
+    "absolute": [
+      "json",
+      "re",
+      "pathlib",
+      "typing"
+    ],
+    "relative": []
+  }
+}

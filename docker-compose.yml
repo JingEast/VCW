@@ -1,0 +1,82 @@
+# VCW 基础设施 — Redis + PostgreSQL
+#
+# 启动：
+#   docker-compose up -d
+#
+# 停止：
+#   docker-compose down
+#
+# 查看日志：
+#   docker-compose logs -f
+
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: vcw-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: vcw-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: vcw
+      POSTGRES_PASSWORD: vcw
+      POSTGRES_DB: vcw
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vcw -d vcw"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Celery Worker（可选，生产环境使用）
+  worker:
+    build: .
+    container_name: vcw-worker
+    command: celery -A celery_app worker -l info -c 2 -Q celery,vcw
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  # Celery Beat（定时任务调度，可选）
+  beat:
+    build: .
+    container_name: vcw-beat
+    command: celery -A celery_app beat -l info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+
+volumes:
+  redis_data:
+  postgres_data:

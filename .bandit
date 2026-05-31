@@ -1,0 +1,3 @@
+[bandit]
+exclude = .venv,__pycache__,alembic,.pytest_cache,.idea,docs,tests
+skips = B101

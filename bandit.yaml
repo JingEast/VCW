@@ -1,0 +1,8 @@
+exclude_dirs:
+  - .venv
+  - __pycache__
+  - alembic
+  - .pytest_cache
+  - .idea
+  - docs
+  - tests

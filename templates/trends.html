@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}热点发现 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>热点发现</h1>
+    <p>多源聚合爬取港籍升学领域热点，支持手动录入补充最新资讯</p>
+</div>
+
+<div class="grid-2 trends-page">
+    <div class="card">
+        <div class="card-header">
+            <h2>热点列表</h2>
+            <div class="trends-filters">
+                <span class="text-muted">共 {{ total }} 条</span>
+                <form method="GET" action="{{ url_for('trends_page') }}" class="filter-form">
+                    <select name="category" onchange="this.form.submit()">
+                        <option value="all" {% if category_filter == 'all' %}selected{% endif %}>全部分类</option>
+                        <option value="港籍升学规划" {% if category_filter == '港籍升学规划' %}selected{% endif %}>港籍升学规划</option>
+                        <option value="香港中小学插班规划" {% if category_filter == '香港中小学插班规划' %}selected{% endif %}>香港中小学插班规划</option>
+                        <option value="DSE笔试备考" {% if category_filter == 'DSE笔试备考' %}selected{% endif %}>DSE笔试备考</option>
+                    </select>
+                    <select name="time_filter" onchange="this.form.submit()">
+                        <option value="all" {% if time_filter == 'all' %}selected{% endif %}>全部时间</option>
+                        <option value="today" {% if time_filter == 'today' %}selected{% endif %}>今天</option>
+                        <option value="week" {% if time_filter == 'week' %}selected{% endif %}>本周</option>
+                        <option value="month" {% if time_filter == 'month' %}selected{% endif %}>本月</option>
+                        <option value="stale" {% if time_filter == 'stale' %}selected{% endif %}>仅陈旧</option>
+                    </select>
+                    <select name="sort_by" onchange="this.form.submit()">
+                        <option value="composite" {% if sort_by == 'composite' %}selected{% endif %}>综合排序</option>
+                        <option value="time" {% if sort_by == 'time' %}selected{% endif %}>最新优先</option>
+                        <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>相关度优先</option>
+                    </select>
+                    <input type="hidden" name="page" value="1">
+                </form>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if trends %}
+            <!-- 紧凑热点列表 -->
+            <div class="trend-list">
+                <!-- 列表表头 -->
+                <div class="trend-header">
+                    <div class="th-source">来源</div>
+                    <div class="th-title">标题</div>
+                    <div class="th-time">时间</div>
+                    <div class="th-action">操作</div>
+                    <div class="th-link">链接</div>
+                </div>
+                {% for t in trends %}
+                <div class="trend-item {% if t.is_selected %}selected-item{% endif %}">
+                    <!-- 来源 -->
+                    <div class="trend-source-col" title="{{ t.source }}">
+                        <span class="trend-bar-inline {% if t.timeliness_score >= 80 %}bar-fresh{% elif t.timeliness_score >= 50 %}bar-normal{% elif t.timeliness_score >= 20 %}bar-stale{% else %}bar-expired{% endif %}"></span>
+                        <span class="source-text">{{ t.source }}</span>
+                    </div>
+
+                    <!-- 标题 -->
+                    <div class="trend-title-col">
+                        <span class="trend-title-text" title="{{ t.title }}">{{ t.title }}</span>
+                        {% if t.summary %}
+                        <span class="trend-summary-text">{{ t.summary[:80] }}{% if t.summary|length > 80 %}...{% endif %}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 时间 -->
+                    <div class="trend-time-col">
+                        {% set time_source = t.get('_time_source', 'unknown') %}
+                        {% set is_reliable = time_source in ('rss', 'google_news', 'article_page', 'url_date', 'direct_url', 'manual') %}
+                        {% if t.get('published_at') %}
+                            <span class="time-text {% if not is_reliable %}time-warn{% endif %}">{{ t.published_at[:16] }}</span>
+                        {% else %}
+                            <span class="time-text time-warn">待确认</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- 操作 -->
+                    <div class="trend-action-col">
+                        <form action="{{ url_for('trend_select', trend_id=t.id) }}" method="POST" style="display:inline" class="select-form">
+                            <button type="submit" class="btn btn-small btn-primary select-btn" data-title="{{ t.title[:20] }}">选用</button>
+                        </form>
+                        <form action="{{ url_for('trend_delete', trend_id=t.id) }}" method="POST" style="display:inline"
+                              onsubmit="return confirm('确定删除此热点？')">
+                            <button type="submit" class="btn btn-small btn-danger">删除</button>
+                        </form>
+                    </div>
+
+                    <!-- 链接 -->
+                    <div class="trend-link-col">
+                        <a href="{{ t.url }}" target="_blank" class="btn btn-small btn-secondary" title="{{ t.url }}">打开</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- 分页控件（带页码数字） -->
+            {% if total_pages > 1 %}
+            <div class="pagination">
+                <!-- 上一页 -->
+                {% if page > 1 %}
+                <a href="{{ url_for('trends_page', page=page-1, time_filter=time_filter, sort_by=sort_by, category=category_filter) }}" class="page-btn">&lt;</a>
+                {% else %}
+                <span class="page-btn disabled">&lt;</span>
+                {% endif %}
+
+                <!-- 首页 -->
+                {% if page > 3 %}
+                <a href="{{ url_for('trends_page', page=1, time_filter=time_filter, sort_by=sort_by, category=category_filter) }}" class="page-btn">1</a>
+                {% if page > 4 %}<span class="page-ellipsis">...</span>{% endif %}
+                {% endif %}
+
+                <!-- 页码数字 -->
+                {% set start_page = [page - 2, 1]|max %}
+                {% set end_page = [page + 2, total_pages]|min %}
+                {% for p in range(start_page, end_page + 1) %}
+                    {% if p == page %}
+                    <span class="page-btn page-active">{{ p }}</span>
+                    {% else %}
+                    <a href="{{ url_for('trends_page', page=p, time_filter=time_filter, sort_by=sort_by, category=category_filter) }}" class="page-btn">{{ p }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- 末页 -->
+                {% if page < total_pages - 2 %}
+                {% if page < total_pages - 3 %}<span class="page-ellipsis">...</span>{% endif %}
+                <a href="{{ url_for('trends_page', page=total_pages, time_filter=time_filter, sort_by=sort_by, category=category_filter) }}" class="page-btn">{{ total_pages }}</a>
+                {% endif %}
+
+                <!-- 下一页 -->
+                {% if page < total_pages %}
+                <a href="{{ url_for('trends_page', page=page+1, time_filter=time_filter, sort_by=sort_by, category=category_filter) }}" class="page-btn">&gt;</a>
+                {% else %}
+                <span class="page-btn disabled">&gt;</span>
+                {% endif %}
+
+                <span class="page-info">共 {{ total }} 条 / {{ total_pages }} 页</span>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state">
+                <p class="text-muted">暂无热点数据，点击右侧"刷新热点"开始爬取，或手动录入最新资讯。</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <!-- 手动录入 -->
+        <div class="card">
+            <div class="card-header">
+                <h3>手动录入热点</h3>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('trend_add_manual') }}" method="POST">
+                    <div class="form-group">
+                        <label>标题 <span class="required">*</span></label>
+                        <input type="text" name="title" placeholder="例如：2025年DSE放榜最新数据公布" required>
+                    </div>
+                    <div class="form-group">
+                        <label>摘要</label>
+                        <textarea name="summary" rows="2" placeholder="简短描述要点..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>来源链接</label>
+                        <input type="url" name="url" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>发布时间</label>
+                        <input type="text" name="published_at" placeholder="2025-01-15">
+                        <small>格式: 2025-01-15</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-small">录入热点</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 爬取控制 -->
+        <div class="card">
+            <div class="card-header">
+                <h3>爬取控制</h3>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('trends_fetch') }}" method="POST" id="fetchForm">
+                    <p class="text-muted small">DuckDuckGo + RSS + 百度热搜，自动过滤过期内容</p>
+                    <button type="submit" class="btn btn-primary btn-large" id="fetchBtn">
+                        <span class="btn-text">刷新热点</span>
+                    </button>
+                </form>
+
+                <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
+
+                <!-- 自动爬取控制 -->
+                <div class="scheduler-panel">
+                    <div class="scheduler-header">
+                        <label class="switch">
+                            <input type="checkbox" id="schedulerToggle" onchange="toggleScheduler()">
+                            <span class="switch-slider"></span>
+                        </label>
+                        <span class="scheduler-label">自动爬取</span>
+                        <span id="schedulerStatus" class="scheduler-status">已关闭</span>
+                    </div>
+                    <div class="scheduler-info" id="schedulerInfo" style="display:none;">
+                        <p class="text-muted small">间隔: <select id="schedulerInterval" onchange="updateInterval()">
+                            <option value="30">30分钟</option>
+                            <option value="60" selected>1小时</option>
+                            <option value="120">2小时</option>
+                            <option value="360">6小时</option>
+                        </select></p>
+                        <p class="text-muted small" id="nextRunText">下次执行: --</p>
+                        <p class="text-muted small" id="lastRunText">上次执行: --</p>
+                        <p class="text-muted small" id="lastResultText">最近结果: --</p>
+                    </div>
+                    <button type="button" class="btn btn-small btn-secondary" onclick="triggerSchedulerNow()" style="margin-top: 0.5rem;">
+                        立即执行
+                    </button>
+                </div>
+
+                <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
+
+                <!-- 数据清理 -->
+                <div class="cleanup-panel">
+                    <p class="text-muted small">数据维护</p>
+                    <form action="{{ url_for('trend_delete_expired') }}" method="POST" style="display:inline"
+                          onsubmit="return confirm('确定清除所有超过180天的过期热点？此操作不可撤销。')">
+                        <button type="submit" class="btn btn-small btn-danger">清除过期热点</button>
+                    </form>
+                    <form action="{{ url_for('trend_archive_stale') }}" method="POST" style="display:inline; margin-left: 0.5rem;"
+                          onsubmit="return confirm('确定归档所有超过90天的陈旧热点？')">
+                        <button type="submit" class="btn btn-small btn-secondary">归档陈旧</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最新热点 -->
+        {% if fresh_hotspots %}
+        <div class="card">
+            <div class="card-header">
+                <h3>最新热点 🔥</h3>
+            </div>
+            <div class="card-body">
+                <ul class="fresh-list">
+                    {% for t in fresh_hotspots %}
+                    <li>
+                        <span class="fresh-dot"></span>
+                        <span class="fresh-title" title="{{ t.title }}">{{ t.title[:30] }}{% if t.title|length > 30 %}...{% endif %}</span>
+                        <form action="{{ url_for('trend_select', trend_id=t.id) }}" method="POST" style="display:inline">
+                            <button type="submit" class="btn btn-small btn-primary">选用</button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 统计报告 -->
+        <div class="card">
+            <div class="card-header">
+                <h3>统计报告</h3>
+            </div>
+            <div class="card-body">
+                <pre class="report-text">{{ report }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trends.css') }}">
+
+<script src="{{ url_for('static', filename='js/trends.js') }}"></script>
+{% endblock %}
