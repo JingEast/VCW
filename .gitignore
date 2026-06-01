@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.idea/
+
+# Runtime data
+data/edited/
+data/generated/
+logs/
+*.db
+
+# Caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/

@@ -2,6 +2,7 @@
 精修工作流模块
 保存精修版本、版本对比、一键去 AI 味优化
 """
+import logging
 import re
 import json
 from datetime import datetime
@@ -39,8 +40,13 @@ class EditorWorkflow:
     
     def _load_index(self) -> Dict:
         if self.index_path.exists():
-            with open(self.index_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+            try:
+                with open(self.index_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError) as exc:
+                logger = logging.getLogger(__name__)
+                logger.warning("Editor index corrupted (%s), starting fresh", exc)
+                return {"versions": []}
         return {"versions": []}
     
     def _save_index(self):
