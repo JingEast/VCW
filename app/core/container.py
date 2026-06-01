@@ -216,10 +216,17 @@ def _make_scheduler_repo(scheduler):
 
 # ---- Service factories ----
 
+def _make_generation_client(generation_service):
+    """创建进程内 GenerationService 客户端适配器"""
+    from clients.inprocess_generation_client import InProcessGenerationClient
+
+    return InProcessGenerationClient(generation_service)
+
+
 def _make_editor_service(
     draft_repo,
     config,
-    generation_service,
+    generation_client,
     transaction_manager,
     permission_manager,
 ) -> "EditorService":
@@ -227,7 +234,7 @@ def _make_editor_service(
     from services.editor_service import EditorService
 
     return EditorService(
-        draft_repo, config, generation_service, transaction_manager, permission_manager
+        draft_repo, config, generation_client, transaction_manager, permission_manager
     )
 
 
@@ -387,12 +394,18 @@ class AppContainer(containers.DeclarativeContainer):
         llm_gateway=llm_gateway,
     )
 
+    # ---- 生成服务客户端（单例，进程内适配器） ----
+    generation_client = providers.Singleton(
+        _make_generation_client,
+        generation_service=generation_service,
+    )
+
     # ---- 编辑器服务（单例） ----
     editor_service = providers.Singleton(
         _make_editor_service,
         draft_repo=draft_repo,
         config=config,
-        generation_service=generation_service,
+        generation_client=generation_client,
         transaction_manager=transaction_manager,
         permission_manager=permission_manager,
     )

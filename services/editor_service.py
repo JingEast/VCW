@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 from services.base.base_service import BaseService
 from services.base.permission_manager import PermissionDenied
 from domains.editor.domain.repository import IDraftRepository
+from interfaces.generation_client import IGenerationServiceClient
 
 
 class EditorError(Exception):
@@ -128,7 +129,7 @@ class EditorService(BaseService):
         self,
         draft_repo: IDraftRepository,
         config,
-        generation_service,
+        generation_client: IGenerationServiceClient,
         transaction_manager=None,
         permission_manager=None,
     ) -> None:
@@ -136,13 +137,13 @@ class EditorService(BaseService):
         Args:
             draft_repo: IDraftRepository 实例（底层草稿管理）。
             config: Config 实例。
-            generation_service: GenerationService 实例（用于委托 LLM 调用）。
+            generation_client: IGenerationServiceClient 实例（用于委托 LLM 调用）。
             transaction_manager: 事务管理器（可选）。
             permission_manager: 权限管理器（可选）。
         """
         super().__init__(config, transaction_manager, permission_manager)
         self.draft_repo = draft_repo
-        self.generation_service = generation_service
+        self.generation_client = generation_client
 
     def _on_permission_denied(self, exc: PermissionDenied) -> None:
         """将权限拒绝转换为 EditorError，保持路由层异常契约。"""
@@ -254,7 +255,7 @@ class EditorService(BaseService):
     def optimize_with_ai(self, req: DeAIOptimizeRequest) -> DeAIOptimizeResponse:
         self._require_permission("editor.optimize")
         de_ai_prompt = self.build_de_ai_prompt(req.content)
-        success, optimized, meta = self.generation_service.generate_text(
+        success, optimized, meta = self.generation_client.generate_text(
             system_prompt="你是一位资深短视频文案编辑。请直接输出润色后的文案，不要加任何解释。",
             user_prompt=de_ai_prompt,
         )
