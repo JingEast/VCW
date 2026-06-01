@@ -7,6 +7,9 @@
 职责边界：
   - 所有涉及 Celery 的调用均封装在此服务内。
   - GenerationService 不再直接导入 celery。
+  - 本服务内部操作 GenerationJobEntity（纯领域实体），
+    通过 GenerationJobMapper 在边界处完成 ORM 转换，
+    杜绝 ORM 对象向业务逻辑的泄漏。
 """
 
 from __future__ import annotations
@@ -17,6 +20,9 @@ from typing import Dict, List, Optional
 
 from services.generation_service import GenerationError
 from services.base.permission_manager import PermissionDenied
+
+from domains.generation.domain.entities import GenerationJobEntity
+from domains.generation.infrastructure.generation_mapper import GenerationJobMapper
 
 
 class AsyncTaskError(GenerationError):
@@ -109,24 +115,25 @@ class AsyncTaskService:
 
         from vcw_celery_tasks.tasks import generate_copy_task
         from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
         import uuid
 
         result = generate_copy_task.delay(dto.req_data)
         task_id = result.id
 
+        entity = GenerationJobEntity(
+            id=str(uuid.uuid4())[:12],
+            job_type="generate",
+            status="pending",
+            progress=0,
+            message="等待执行...",
+            celery_task_id=task_id,
+            created_at=datetime.utcnow(),
+        )
+
         session = get_session()
         try:
-            job = GenerationJob(
-                id=str(uuid.uuid4())[:12],
-                job_type="generate",
-                status="pending",
-                progress=0,
-                message="等待执行...",
-                celery_task_id=task_id,
-                created_at=datetime.utcnow(),
-            )
-            session.add(job)
+            orm = GenerationJobMapper.to_orm(entity)
+            session.add(orm)
             session.commit()
         finally:
             session.close()
@@ -138,20 +145,23 @@ class AsyncTaskService:
         from celery.result import AsyncResult
         from celery_app import app as celery_app
         from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
+        from vcw_copywriter.db.models import GenerationJob as GenerationJobOrm
 
         session = get_session()
         try:
-            job = (
-                session.query(GenerationJob)
-                .filter(GenerationJob.celery_task_id == task_id)
+            orm = (
+                session.query(GenerationJobOrm)
+                .filter(GenerationJobOrm.celery_task_id == task_id)
                 .first()
             )
         finally:
             session.close()
 
-        if not job:
+        if not orm:
             raise AsyncTaskError("任务不存在", code="TASK_NOT_FOUND")
+
+        # 验证任务存在（通过领域实体转换）
+        _ = GenerationJobMapper.to_entity(orm)
 
         result = AsyncResult(task_id, app=celery_app)
 
@@ -233,28 +243,29 @@ class AsyncTaskService:
 
         from vcw_celery_tasks.tasks import generate_batch_task
         from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
         import uuid
 
         batch_id = str(uuid.uuid4())[:12]
 
+        entity = GenerationJobEntity(
+            id=batch_id,
+            job_type="batch",
+            status="pending",
+            progress=0,
+            message=f"等待执行... 共 {len(dto.angles)} 个角度",
+            result={
+                "total": len(dto.angles),
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+            },
+            created_at=datetime.utcnow(),
+        )
+
         session = get_session()
         try:
-            job = GenerationJob(
-                id=batch_id,
-                job_type="batch",
-                status="pending",
-                progress=0,
-                message=f"等待执行... 共 {len(dto.angles)} 个角度",
-                result={
-                    "total": len(dto.angles),
-                    "completed": 0,
-                    "failed": 0,
-                    "cancelled": 0,
-                },
-                created_at=datetime.utcnow(),
-            )
-            session.add(job)
+            orm = GenerationJobMapper.to_orm(entity)
+            session.add(orm)
             session.commit()
         finally:
             session.close()
@@ -265,29 +276,33 @@ class AsyncTaskService:
     def get_async_batch_status(self, batch_id: str) -> Dict:
         """查询异步批量任务状态。"""
         from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
+        from vcw_copywriter.db.models import GenerationJob as GenerationJobOrm
 
         session = get_session()
         try:
-            parent = (
-                session.query(GenerationJob)
+            parent_orm = (
+                session.query(GenerationJobOrm)
                 .filter(
-                    GenerationJob.id == batch_id,
-                    GenerationJob.job_type == "batch",
+                    GenerationJobOrm.id == batch_id,
+                    GenerationJobOrm.job_type == "batch",
                 )
                 .first()
             )
 
-            if not parent:
+            if not parent_orm:
                 raise AsyncTaskError("批次不存在", code="BATCH_NOT_FOUND")
 
-            children = (
-                session.query(GenerationJob)
-                .filter(GenerationJob.parent_batch_id == batch_id)
+            children_orm = (
+                session.query(GenerationJobOrm)
+                .filter(GenerationJobOrm.parent_batch_id == batch_id)
                 .all()
             )
         finally:
             session.close()
+
+        # 转换为领域实体进行业务逻辑处理
+        parent = GenerationJobMapper.to_entity(parent_orm)
+        children = [GenerationJobMapper.to_entity(c) for c in children_orm]
 
         total = len(children)
         completed = sum(1 for c in children if c.status == "completed")
@@ -360,40 +375,43 @@ class AsyncTaskService:
         """取消异步批量任务及其子任务。"""
         from celery_app import app as celery_app
         from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
+        from vcw_copywriter.db.models import GenerationJob as GenerationJobOrm
 
         session = get_session()
         try:
-            parent = (
-                session.query(GenerationJob)
+            parent_orm = (
+                session.query(GenerationJobOrm)
                 .filter(
-                    GenerationJob.id == batch_id,
-                    GenerationJob.job_type == "batch",
+                    GenerationJobOrm.id == batch_id,
+                    GenerationJobOrm.job_type == "batch",
                 )
                 .first()
             )
 
-            if not parent:
+            if not parent_orm:
                 raise AsyncTaskError("批次不存在", code="BATCH_NOT_FOUND")
 
-            children = (
-                session.query(GenerationJob)
-                .filter(GenerationJob.parent_batch_id == batch_id)
+            children_orm = (
+                session.query(GenerationJobOrm)
+                .filter(GenerationJobOrm.parent_batch_id == batch_id)
                 .all()
             )
 
-            revoked = 0
-            for child in children:
-                if child.status in ("pending", "running"):
-                    if child.celery_task_id:
+            # 业务逻辑在领域实体上执行
+            for child_orm in children_orm:
+                child_entity = GenerationJobMapper.to_entity(child_orm)
+                if child_entity.status in ("pending", "running"):
+                    if child_entity.celery_task_id:
                         celery_app.control.revoke(
-                            child.celery_task_id, terminate=True
+                            child_entity.celery_task_id, terminate=True
                         )
-                    child.status = "cancelled"
-                    revoked += 1
+                    child_entity.mark_cancelled()
+                    GenerationJobMapper.update_orm(child_entity, child_orm)
 
-            parent.status = "cancelled"
-            parent.completed_at = datetime.utcnow()
+            parent_entity = GenerationJobMapper.to_entity(parent_orm)
+            parent_entity.mark_cancelled(completed_at=datetime.utcnow())
+            GenerationJobMapper.update_orm(parent_entity, parent_orm)
+
             session.commit()
         finally:
             session.close()
