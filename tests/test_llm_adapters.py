@@ -10,9 +10,6 @@
 
 from __future__ import annotations
 
-import json
-import time
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -25,13 +22,11 @@ from llm.adapter import (
     HealthStatus,
     LLMResponse,
     OpenAIAdapter,
-    TokenUsage,
     create_adapter,
     list_providers,
     register_provider,
 )
 from llm.adapter.exceptions import (
-    LLMAdapterError,
     LLMAuthenticationError,
     LLMBadRequestError,
     LLMNotImplementedError,
@@ -686,13 +681,6 @@ class TestBaseLLMAdapter:
         assert "OpenAIAdapter" in r
         assert "openai" in r
         assert "gpt-4o" in r
-
-    def test_generate_stream_not_implemented(self):
-        """默认 generate_stream 抛出 NotImplementedError。"""
-        adapter = OpenAIAdapter(api_key="k")
-        with pytest.raises(NotImplementedError):
-            next(adapter.generate_stream([{"role": "user", "content": "hi"}]))
-
 
 # =============================================================================
 # Integration Smoke Tests

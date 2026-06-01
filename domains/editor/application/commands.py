@@ -1,7 +1,6 @@
 """Editor domain write-model commands."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass

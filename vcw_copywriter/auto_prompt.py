@@ -352,7 +352,7 @@ class AutoPromptBuilder:
         has_recent_year = any(int(y) >= current_year - 1 for y in years_in_text)
 
         if not has_recent_year:
-            prompts.append(f"⚠️ 重要：该热点未明确提及{current_year}或{current_year+1}年的信息，生成时必须使用最新数据，禁止使用过时的年份和旧政策")
+            prompts.append(f"⚠️ 重要：该热点未明确提及{current_year}或{current_year + 1}年的信息，生成时必须使用最新数据，禁止使用过时的年份和旧政策")
 
         # 来源可信度提示
         if any(kw in text.lower() for kw in ["考评局", "教育局", "edb", "hkeaa", "官方"]):

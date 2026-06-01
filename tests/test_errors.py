@@ -8,7 +8,6 @@
 """
 
 
-
 class Test404Handler:
     """404 Not Found 错误测试"""
 

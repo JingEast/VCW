@@ -183,7 +183,6 @@ def _make_copy_repo():
     return CopyRepository()
 
 
-
 def _make_memory_repo(memory_bank):
     from domains.generation.infrastructure.repository import MemoryRepository
     return MemoryRepository(memory_bank)

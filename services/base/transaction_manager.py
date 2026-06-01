@@ -62,6 +62,7 @@ class TransactionManager:
             session = self._session_factory()
         previous_session = self._session
         self._session = session
+        assert session is not None
 
         try:
             if own_session:

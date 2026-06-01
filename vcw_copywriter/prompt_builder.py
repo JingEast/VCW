@@ -21,9 +21,11 @@ if TYPE_CHECKING:
 # ------------------------------------------------------------------------------
 # 这些变量在模块加载时从 defaults 导入，确保旧代码直接引用时行为不变。
 from .prompts.defaults import (
-    _SYSTEM_PROMPT_V1 as SYSTEM_PROMPT_TEMPLATE,  # noqa: F401
+    _SYSTEM_PROMPT_V1 as SYSTEM_PROMPT_TEMPLATE,
     _SAMPLE_1, _SAMPLE_2, _SAMPLE_3, _SAMPLE_4, _SAMPLE_5,
 )
+
+__all__ = ["SYSTEM_PROMPT_TEMPLATE", "SAMPLE_COPYWRITING", "build_user_prompt", "build_full_prompts", "get_registry", "reload_prompts"]
 
 SAMPLE_COPYWRITING = {
     "样本一": _SAMPLE_1,

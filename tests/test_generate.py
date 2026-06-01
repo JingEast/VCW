@@ -7,8 +7,6 @@
 
 import services.generation_service as _svc_mod
 import vcw_copywriter.editor as _editor_mod
-import vcw_copywriter.generator as _gen_mod
-import vcw_copywriter.model_router as _router_mod
 
 
 class TestSyncGenerate:
@@ -24,25 +22,13 @@ class TestSyncGenerate:
         # 替换模块属性（避免 monkeypatch 与复杂导入的交互问题）
         orig_build = _svc_mod.build_full_prompts
         orig_check = _svc_mod.check_and_report
-        orig_generate = _svc_mod.CopywriterGenerator.generate
-        orig_save_generated_svc = _svc_mod.CopywriterGenerator.save_generated
-        orig_save_generated_gen = _gen_mod.CopywriterGenerator.save_generated
-        orig_router_generate = _router_mod.ModelRouter.generate
+        orig_do_generate = _svc_mod.GenerationService._do_generate
         orig_save = _editor_mod.EditorWorkflow.save_draft
 
         _svc_mod.build_full_prompts = lambda **kwargs: ("system prompt", "user prompt")
         _svc_mod.check_and_report = lambda c, s: (True, "[INFO] 检查通过")
-        _svc_mod.CopywriterGenerator.generate = lambda self, sp, up: (
-            True, "这是测试生成的文案", {"model": "mock-model"}
-        )
-        _svc_mod.CopywriterGenerator.save_generated = (
-            lambda self, content, topic, meta, output_dir: "/mock/path/test.md"
-        )
-        _gen_mod.CopywriterGenerator.save_generated = (
-            lambda self, content, topic, meta, output_dir: "/mock/path/test.md"
-        )
-        _router_mod.ModelRouter.generate = lambda self, sp, up, **kw: (
-            True, "这是测试生成的文案", {"model": "mock-router"}
+        _svc_mod.GenerationService._do_generate = lambda self, sp, up: (
+            True, "这是测试生成的文案", "模型: mock-model | Provider: mock"
         )
         _editor_mod.EditorWorkflow.save_draft = lambda self, **kwargs: "draft-123"
 
@@ -62,10 +48,7 @@ class TestSyncGenerate:
         finally:
             _svc_mod.build_full_prompts = orig_build
             _svc_mod.check_and_report = orig_check
-            _svc_mod.CopywriterGenerator.generate = orig_generate
-            _svc_mod.CopywriterGenerator.save_generated = orig_save_generated_svc
-            _gen_mod.CopywriterGenerator.save_generated = orig_save_generated_gen
-            _router_mod.ModelRouter.generate = orig_router_generate
+            _svc_mod.GenerationService._do_generate = orig_do_generate
             _editor_mod.EditorWorkflow.save_draft = orig_save
 
 

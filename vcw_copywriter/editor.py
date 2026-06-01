@@ -31,13 +31,13 @@ DEO_AI_PROMPT = """你是一位资深短视频文案编辑，擅长将AI生成�
 
 class EditorWorkflow:
     """精修工作流"""
-    
+
     def __init__(self, edit_dir: str = "data/edited"):
         self.edit_dir = Path(edit_dir)
         self.edit_dir.mkdir(parents=True, exist_ok=True)
         self.index_path = self.edit_dir / "index.json"
         self.index = self._load_index()
-    
+
     def _load_index(self) -> Dict:
         if self.index_path.exists():
             try:
@@ -48,21 +48,21 @@ class EditorWorkflow:
                 logger.warning("Editor index corrupted (%s), starting fresh", exc)
                 return {"versions": []}
         return {"versions": []}
-    
+
     def _save_index(self):
         with open(self.index_path, "w", encoding="utf-8") as f:
             json.dump(self.index, f, ensure_ascii=False, indent=2)
-    
+
     def save_draft(self, original_content: str, topic: str,
                    source_filepath: str = "", meta: str = "") -> str:
         """
         保存原始文案为可精修草稿
-        
+
         Returns:
             draft_id
         """
         draft_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
+
         draft = {
             "id": draft_id,
             "topic": topic,
@@ -75,15 +75,15 @@ class EditorWorkflow:
             "updated_at": datetime.now().isoformat(),
             "edit_history": [],
         }
-        
+
         self.index["versions"].append(draft)
         self._save_index()
-        
+
         # 同时保存为 markdown 文件
         self._save_markdown(draft)
-        
+
         return draft_id
-    
+
     def update_edited(self, draft_id: str, edited_content: str,
                       edit_note: str = "") -> bool:
         """更新精修内容"""
@@ -96,16 +96,16 @@ class EditorWorkflow:
                     "before_length": len(v["edited"]),
                     "after_length": len(edited_content),
                 })
-                
+
                 v["edited"] = edited_content
                 v["updated_at"] = datetime.now().isoformat()
                 v["status"] = "edited"
-                
+
                 self._save_index()
                 self._save_markdown(v)
                 return True
         return False
-    
+
     def finalize(self, draft_id: str) -> bool:
         """标记为最终版本"""
         for v in self.index["versions"]:
@@ -115,38 +115,38 @@ class EditorWorkflow:
                 self._save_index()
                 return True
         return False
-    
+
     def get_draft(self, draft_id: str) -> Optional[Dict]:
         """获取草稿"""
         for v in self.index["versions"]:
             if v["id"] == draft_id:
                 return v
         return None
-    
+
     def get_all_drafts(self, status: str = None) -> List[Dict]:
         """获取所有草稿"""
         drafts = self.index["versions"]
         if status:
             drafts = [d for d in drafts if d.get("status") == status]
         return sorted(drafts, key=lambda x: x.get("updated_at", ""), reverse=True)
-    
+
     def get_diff(self, draft_id: str) -> Tuple[str, str]:
         """获取原始版 vs 精修版的对比"""
         draft = self.get_draft(draft_id)
         if not draft:
             return "", ""
         return draft.get("original", ""), draft.get("edited", "")
-    
+
     def build_de_ai_prompt(self, content: str) -> str:
         """构建去 AI 味的优化提示词"""
         return DEO_AI_PROMPT.format(content=content)
-    
+
     def _save_markdown(self, draft: Dict):
         """保存为 markdown 文件"""
         safe_topic = re.sub(r'[^\w\u4e00-\u9fff]', '_', draft.get("topic", "untitled"))[:30]
         filename = f"{draft['id']}_{safe_topic}.md"
         filepath = self.edit_dir / filename
-        
+
         header = f"""---
 draft_id: {draft['id']}
 topic: {draft.get('topic', '')}

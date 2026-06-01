@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from typing import Any, Iterator, Optional, Self
 
-from llm.adapter.base import BaseLLMAdapter, LLMResponse
+from llm.adapter.base import LLMResponse
 from llm.cache.base import BaseCacheBackend
 from llm.fallback.base import BaseFallbackStrategy
 from llm.metrics.base import BaseMetricsCollector, MetricLabels

@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple
 
 # Optional Prometheus integration
 try:
-    from prometheus_client import Counter, Gauge, Histogram, Info, generate_latest
+    from prometheus_client import Counter, Gauge, Histogram, generate_latest
 
     _PROMETHEUS_AVAILABLE = True
 except ImportError:
@@ -125,6 +125,12 @@ class PromptMetricsCollector(IPromptMetricsCollector):
         self._records: List[PromptCallInfo] = []
         self._enable_prometheus = enable_prometheus and _PROMETHEUS_AVAILABLE
 
+        self._prom_calls: Optional[Counter] = None
+        self._prom_tokens: Optional[Counter] = None
+        self._prom_cost: Optional[Counter] = None
+        self._prom_latency: Optional[Histogram] = None
+        self._prom_active: Optional[Gauge] = None
+
         if self._enable_prometheus:
             self._prom_calls = Counter(
                 "prompt_calls_total",
@@ -151,18 +157,16 @@ class PromptMetricsCollector(IPromptMetricsCollector):
                 "prompt_active_requests",
                 "Number of currently active prompt requests",
             )
-        else:
-            self._prom_calls = None
-            self._prom_tokens = None
-            self._prom_cost = None
-            self._prom_latency = None
-            self._prom_active = None
 
     def record(self, info: PromptCallInfo) -> None:
         self._records.append(info)
         cost = compute_cost(info.model, info.input_tokens, info.output_tokens)
 
         if self._enable_prometheus:
+            assert self._prom_calls is not None
+            assert self._prom_tokens is not None
+            assert self._prom_cost is not None
+            assert self._prom_latency is not None
             status = "success" if info.success else "error"
             self._prom_calls.labels(model=info.model or "unknown", status=status).inc()
             self._prom_tokens.labels(model=info.model or "unknown", type="input").inc(

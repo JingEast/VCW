@@ -1,0 +1,13 @@
+[flake8]
+max-line-length = 120
+exclude =
+    .venv,
+    __pycache__,
+    .pytest_cache,
+    alembic,
+    .idea,
+    node_modules,
+    docs,
+    data,
+    logs,
+    migrate_from_json.py

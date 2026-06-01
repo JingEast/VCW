@@ -121,10 +121,12 @@ class PromptService(BaseService):
         return {
             "system_length": len(rendered_system),
             "user_length": len(user_prompt),
-            "system_preview": rendered_system[:2000]
-            + ("..." if len(rendered_system) > 2000 else ""),
-            "user_preview": user_prompt[:2000]
-            + ("..." if len(user_prompt) > 2000 else ""),
+            "system_preview": rendered_system[:2000] + (
+                "..." if len(rendered_system) > 2000 else ""
+            ),
+            "user_preview": user_prompt[:2000] + (
+                "..." if len(user_prompt) > 2000 else ""
+            ),
         }
 
     # ------------------------------------------------------------------

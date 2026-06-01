@@ -65,11 +65,11 @@ M2则适合，对数字敏感、喜欢运算和研究数学原理，且打算就
 
 class ViralAnalyzer:
     """爆款文案规律分析器"""
-    
+
     def __init__(self, patterns_path: str = "data/viral_patterns.json"):
         self.patterns_path = Path(patterns_path)
         self.patterns = self._load_or_analyze()
-    
+
     def _load_or_analyze(self) -> Dict:
         if self.patterns_path.exists():
             with open(self.patterns_path, "r", encoding="utf-8") as f:
@@ -77,12 +77,12 @@ class ViralAnalyzer:
         patterns = self.analyze_all()
         self._save(patterns)
         return patterns
-    
+
     def _save(self, patterns: Dict):
         self.patterns_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.patterns_path, "w", encoding="utf-8") as f:
             json.dump(patterns, f, ensure_ascii=False, indent=2)
-    
+
     def analyze_all(self) -> Dict:
         """分析所有样本文案，提取爆款规律"""
         return {
@@ -93,7 +93,7 @@ class ViralAnalyzer:
             "sentence_stats": self._analyze_sentences(),
             "emotion_flow": self._analyze_emotion_flow(),
         }
-    
+
     def _extract_hooks(self) -> Dict[str, List[str]]:
         """提取钩子开场句式"""
         hooks = []
@@ -103,7 +103,7 @@ class ViralAnalyzer:
                 first = lines[0].strip()
                 if len(first) > 10:
                     hooks.append(first)
-        
+
         # 提取通用模板
         templates = [
             "今天咱们聊聊，{topic}",
@@ -112,7 +112,7 @@ class ViralAnalyzer:
             "{event}，{impact}",
         ]
         return {"examples": hooks, "templates": templates}
-    
+
     def _extract_data_patterns(self) -> Dict[str, List[str]]:
         """提取数据呈现句式"""
         patterns = []
@@ -123,7 +123,7 @@ class ViralAnalyzer:
                 m = m.strip()
                 if len(m) > 5:
                     patterns.append(m)
-        
+
         templates = [
             "{year}年，{event}，{number}人，比{compare_year}年上涨了{percent}%",
             "{event}的录取率是{percent}%",
@@ -131,7 +131,7 @@ class ViralAnalyzer:
             "{number}人报名，{scope}只招{number2}人，本科录取率{percent}%",
         ]
         return {"examples": patterns[:10], "templates": templates}
-    
+
     def _extract_cta(self) -> Dict[str, List[str]]:
         """提取行动号召句式"""
         ctas = []
@@ -141,7 +141,7 @@ class ViralAnalyzer:
                 line = line.strip()
                 if any(kw in line for kw in ["关注我", "留言", "私信", "咨询", "领取", "预约"]):
                     ctas.append(line)
-        
+
         templates = [
             "关注我，让孩子不走弯路！",
             "想要{resource}的，欢迎{action}",
@@ -149,7 +149,7 @@ class ViralAnalyzer:
             "{action}，让孩子不走弯路",
         ]
         return {"examples": list(set(ctas)), "templates": templates}
-    
+
     def _extract_transitions(self) -> List[str]:
         """提取过渡词/句"""
         transitions = []
@@ -161,9 +161,9 @@ class ViralAnalyzer:
                 for prefix in ["首先", "其次", "另外", "最后", "总结", "其实", "不过", "要是", "所以", "那如果", "再看"]:
                     if line.startswith(prefix):
                         transitions.append(prefix)
-        
+
         return list(set(transitions))
-    
+
     def _analyze_sentences(self) -> Dict:
         """分析句子长度和结构统计"""
         all_sentences = []
@@ -173,7 +173,7 @@ class ViralAnalyzer:
                 s = s.strip()
                 if s:
                     all_sentences.append(s)
-        
+
         lengths = [len(s) for s in all_sentences]
         return {
             "avg_length": round(sum(lengths) / len(lengths), 1) if lengths else 0,
@@ -184,7 +184,7 @@ class ViralAnalyzer:
             ) if lengths else 0,
             "sample_count": len(all_sentences),
         }
-    
+
     def _analyze_emotion_flow(self) -> List[str]:
         """分析情绪流动规律"""
         return [
@@ -196,11 +196,11 @@ class ViralAnalyzer:
             "兜底：无论如何都有书读（消除焦虑）",
             "CTA：引导关注/互动/转化",
         ]
-    
+
     def get_patterns(self) -> Dict:
         """获取所有爆款规律"""
         return self.patterns
-    
+
     def format_for_prompt(self) -> str:
         """将爆款规律格式化为 Prompt 可用的文本"""
         p = self.patterns
@@ -211,27 +211,27 @@ class ViralAnalyzer:
         ]
         for t in p.get("hook_patterns", {}).get("templates", []):
             lines.append(f"  - {t}")
-        
+
         lines.extend(["", "【数据呈现模板】"])
         for t in p.get("data_patterns", {}).get("templates", []):
             lines.append(f"  - {t}")
-        
+
         lines.extend(["", "【CTA模板】"])
         for t in p.get("cta_patterns", {}).get("templates", []):
             lines.append(f"  - {t}")
-        
+
         lines.extend(["", "【自然过渡词】"])
         lines.append(f"  {', '.join(p.get('transition_words', []))}")
-        
+
         lines.extend(["", "【句子结构统计】"])
         stats = p.get("sentence_stats", {})
         lines.append(f"  平均句长: {stats.get('avg_length', 0)}字")
-        lines.append(f"  短句占比(≤25字): {stats.get('short_sentence_ratio', 0)*100:.0f}%")
-        
+        lines.append(f"  短句占比(≤25字): {stats.get('short_sentence_ratio', 0) * 100:.0f}%")
+
         lines.extend(["", "【情绪流动公式】"])
         for i, step in enumerate(p.get("emotion_flow", []), 1):
             lines.append(f"  {i}. {step}")
-        
+
         return "\n".join(lines)
 
 

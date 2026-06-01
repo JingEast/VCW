@@ -1,7 +1,7 @@
 """Generation domain repository interfaces (Port)."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 class ICopyRepository(ABC):

@@ -27,46 +27,46 @@ ANGLE_PRESETS = {
 
 class BatchGenerator:
     """批量文案生成器"""
-    
+
     def __init__(self, llm_config: Dict):
         self.llm_config = llm_config
         self.generator = CopywriterGenerator(llm_config)
-    
+
     def generate_batch(self, system_prompt: str, user_prompt: str,
                        angles: List[str] = None,
                        on_progress=None) -> List[Dict]:
         """
         批量生成文案变体
-        
+
         Args:
             system_prompt: 系统提示词
             user_prompt: 基础用户提示词
             angles: 角度列表，如 ["焦虑型", "数据型", "故事型"]
             on_progress: 进度回调函数 (current, total, status)
-        
+
         Returns:
             结果列表，每项包含 angle, content, meta, passed, issues
         """
         angles = angles or ["焦虑型", "数据型", "故事型"]
         results = []
         total = len(angles)
-        
+
         for i, angle in enumerate(angles, 1):
             if on_progress:
                 on_progress(i, total, f"正在生成 {angle} 文案...")
-            
+
             # 为当前角度定制 user prompt
             angle_prompt = self._build_angle_prompt(user_prompt, angle)
-            
+
             # 调用生成
             success, content, meta = self.generator.generate(
                 system_prompt, angle_prompt
             )
-            
+
             if success:
                 # 质量检查
                 passed, report = check_and_report(content, strict_mode=False)
-                
+
                 # 解析问题
                 issues = []
                 for line in report.split("\n"):
@@ -75,7 +75,7 @@ class BatchGenerator:
                         issues.append({"level": "error", "text": line.replace("[ERR]", "").strip()})
                     elif line.startswith("[WARN]"):
                         issues.append({"level": "warning", "text": line.replace("[WARN]", "").strip()})
-                
+
                 results.append({
                     "angle": angle,
                     "success": True,
@@ -93,21 +93,21 @@ class BatchGenerator:
                     "passed": False,
                     "issues": [{"level": "error", "text": meta}],
                 })
-            
+
             # 礼貌延迟，避免限流
             if i < total:
                 time.sleep(1)
-        
+
         if on_progress:
             on_progress(total, total, "批量生成完成！")
-        
+
         return results
-    
+
     def _build_angle_prompt(self, base_prompt: str, angle: str) -> str:
         """为特定角度构建定制化的 user prompt"""
         preset = ANGLE_PRESETS.get(angle, {})
         style_note = preset.get("style_note", "")
-        
+
         angle_section = f"""
 ---
 
@@ -119,7 +119,7 @@ class BatchGenerator:
 请确保本次生成的文案严格符合上述角度风格，与其他角度有明显差异。
 """
         return base_prompt + angle_section
-    
+
     def save_batch(self, results: List[Dict], topic: str,
                    output_dir: str = "data/generated") -> List[str]:
         """保存批量生成结果"""

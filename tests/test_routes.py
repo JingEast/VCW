@@ -5,7 +5,6 @@
 """
 
 
-
 class TestIndexPage:
     """首页路由测试"""
 

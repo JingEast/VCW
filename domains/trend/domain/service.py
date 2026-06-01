@@ -144,5 +144,5 @@ class TrendFilterEngine:
             )
 
         # 分页
-        paginated = result[filter_.offset : filter_.offset + filter_.limit]
+        paginated = result[filter_.offset: filter_.offset + filter_.limit]
         return paginated

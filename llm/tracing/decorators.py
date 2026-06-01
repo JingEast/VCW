@@ -15,7 +15,7 @@ from __future__ import annotations
 import functools
 from typing import Any, Callable, Optional, TypeVar
 
-from llm.tracing.otel_tracing import GatewayTracer, _get_tracer
+from llm.tracing.otel_tracing import _get_tracer
 
 F = TypeVar("F", bound=Callable[..., Any])
 

@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .prompt_executor import IPromptExecutor, PromptChunk, PromptExecutionContext, PromptResult
+from .prompt_executor import IPromptExecutor, PromptExecutionContext, PromptResult
 
 
 @dataclass

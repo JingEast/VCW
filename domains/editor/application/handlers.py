@@ -1,6 +1,5 @@
 """Editor domain application handlers."""
 
-from typing import Optional
 
 from services.editor_service import (
     DeAIOptimizeRequest,

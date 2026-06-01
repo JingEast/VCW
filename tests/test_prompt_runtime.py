@@ -7,11 +7,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from prompt_runtime import (
-    CacheEntry,
     DegradeContent,
     FallbackExhaustedError,
     HashKeyStrategy,
-    IPromptCache,
     ModelFallbackStrategy,
     PromptCache,
     PromptCallInfo,

@@ -30,7 +30,7 @@ class ChainFallbackStrategy(BaseFallbackStrategy):
         except ValueError:
             idx = -1
 
-        for candidate in self.priority[idx + 1 :]:
+        for candidate in self.priority[idx + 1:]:
             if candidate in available_providers:
                 result = FallbackResult(
                     provider=candidate,

@@ -13,13 +13,12 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from llm.adapter.base import LLMResponse, TokenUsage
-from llm.adapter.retry import RETRYABLE_EXCEPTIONS, with_llm_retry
+from llm.adapter.retry import with_llm_retry
 from llm.adapter.exceptions import LLMRateLimitError, LLMServiceUnavailableError
 from llm.fallback.chain_strategy import ChainFallbackStrategy
 from llm.gateway.config import GatewayConfig

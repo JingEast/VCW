@@ -32,7 +32,7 @@ class Config:
     def __init__(self, config_path="config.json"):
         self.config_path = Path(config_path)
         self.data = self._load()
-    
+
     def _load(self):
         if self.config_path.exists():
             with open(self.config_path, "r", encoding="utf-8") as f:
@@ -41,7 +41,7 @@ class Config:
                 merged = self._deep_merge(DEFAULT_CONFIG.copy(), loaded)
                 return merged
         return DEFAULT_CONFIG.copy()
-    
+
     def _deep_merge(self, base, update):
         for key, value in update.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
@@ -49,11 +49,11 @@ class Config:
             else:
                 base[key] = value
         return base
-    
+
     def save(self):
         with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
-    
+
     def get(self, *keys, default=None):
         d = self.data
         for key in keys:
@@ -62,7 +62,7 @@ class Config:
             else:
                 return default
         return d
-    
+
     def set(self, *keys, value):
         d = self.data
         for key in keys[:-1]:

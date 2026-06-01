@@ -261,7 +261,7 @@ def get_all_websites() -> List[Dict]:
 def format_for_prompt(business_line: str = "all") -> str:
     """将知识库格式化为 Prompt 可用的文本"""
     lines = []
-    
+
     if business_line in ("all", "插班"):
         lines.extend([
             "=== 香港中小学插班规划 - 权威资源 ===",
@@ -270,9 +270,9 @@ def format_for_prompt(business_line: str = "all") -> str:
         ])
         for site in SCHOOL_TRANSFER_WEBSITES:
             lines.append(f"  - {site['name']} ({site['category']}): {site['url']}")
-        
+
         lines.extend(["", "【服务流程】", SCHOOL_TRANSFER_WORKFLOW])
-    
+
     if business_line in ("all", "DSE"):
         lines.extend([
             "",
@@ -282,9 +282,9 @@ def format_for_prompt(business_line: str = "all") -> str:
         ])
         for site in DSE_WEBSITES:
             lines.append(f"  - {site['name']} ({site['category']}): {site['url']}")
-        
+
         lines.extend(["", "【服务流程】", DSE_WORKFLOW])
-    
+
     return "\n".join(lines)
 
 

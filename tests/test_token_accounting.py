@@ -14,9 +14,7 @@
 from __future__ import annotations
 
 import threading
-import time
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -25,12 +23,8 @@ from llm.gateway.config import GatewayConfig
 from llm.gateway.core import LLMGateway
 from llm.gateway.registry import ProviderRegistry
 from llm.metrics import (
-    GlobalSummary,
     MetricLabels,
-    ModelSummary,
-    RequestSummary,
     TokenAccountingCollector,
-    UserSummary,
 )
 
 

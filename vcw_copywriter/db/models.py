@@ -70,6 +70,7 @@ class Trend(Base):  # type: ignore[valid-type, misc]
     def from_dict(cls, data: dict) -> "Trend":
         """从原 JSON 字典创建 ORM 实例"""
         from ..scraper.utils import TimeParser
+
         def _dt(val):
             if not val:
                 return None
@@ -127,6 +128,7 @@ class MemoryEntry(Base):  # type: ignore[valid-type, misc]
     @classmethod
     def from_dict(cls, data: dict) -> "MemoryEntry":
         from ..scraper.utils import TimeParser
+
         def _dt(val):
             if not val:
                 return None

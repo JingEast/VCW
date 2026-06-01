@@ -41,7 +41,7 @@ def get_all_files():
 def generate_directory_tree():
     """Generate a clean directory tree string."""
     lines = ["VCW/"]
-    
+
     def tree_dir(path: Path, prefix: str = ""):
         try:
             entries = []
@@ -51,7 +51,7 @@ def generate_directory_tree():
                 entries.append(entry)
         except PermissionError:
             return
-        
+
         for i, entry in enumerate(entries):
             is_last = (i == len(entries) - 1)
             connector = "└── " if is_last else "├── "
@@ -60,7 +60,7 @@ def generate_directory_tree():
             if entry.is_dir():
                 extension = "    " if is_last else "│   "
                 tree_dir(entry, prefix + extension)
-    
+
     tree_dir(PROJECT_ROOT, "")
     return "\n".join(lines)
 
@@ -74,7 +74,7 @@ def parse_imports(file_path: Path):
         tree = ast.parse(source)
     except (SyntaxError, UnicodeDecodeError):
         return abs_imports, rel_imports
-    
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -91,7 +91,7 @@ def parse_imports(file_path: Path):
 
 def analyze_dependencies(files):
     py_files = [f for f in files if f.suffix == '.py']
-    
+
     project_modules = set()
     for f in py_files:
         rel = f.relative_to(PROJECT_ROOT)
@@ -99,22 +99,22 @@ def analyze_dependencies(files):
         if module_name.endswith('.__init__'):
             module_name = module_name[:-9]
         project_modules.add(module_name)
-    
+
     module_imports = defaultdict(list)
     detailed = {}
-    
+
     for f in py_files:
         rel = f.relative_to(PROJECT_ROOT)
         module_name = str(rel.with_suffix('')).replace(os.sep, '.')
         if module_name.endswith('.__init__'):
             module_name = module_name[:-9]
-        
+
         abs_imp, rel_imp = parse_imports(f)
         detailed[str(rel).replace(os.sep, '/')] = {
             "absolute": abs_imp,
             "relative": rel_imp
         }
-        
+
         for imp in abs_imp:
             parts = imp.split('.')
             for i in range(len(parts), 0, -1):
@@ -127,7 +127,7 @@ def analyze_dependencies(files):
                         continue
                     module_imports[module_name].append(prefix)
                     break
-    
+
     subpackage_deps = defaultdict(set)
     for mod, deps in module_imports.items():
         mod_pkg = mod.split('.')[0]
@@ -135,7 +135,7 @@ def analyze_dependencies(files):
             dep_pkg = d.split('.')[0]
             if mod_pkg != dep_pkg:
                 subpackage_deps[mod_pkg].add(dep_pkg)
-    
+
     return {
         "module_imports": {k: sorted(set(v)) for k, v in module_imports.items()},
         "subpackage_dependencies": {k: sorted(v) for k, v in subpackage_deps.items()},
@@ -155,7 +155,7 @@ def find_cycles(graph):
             adj[node] = set()
     for node, deps in graph.items():
         adj[node].update(deps)
-    
+
     # Find SCCs, then cycles within each SCC
     index_counter = [0]
     stack = []
@@ -163,21 +163,21 @@ def find_cycles(graph):
     index = {}
     on_stack = {}
     sccs = []
-    
+
     def strongconnect(v):
         index[v] = index_counter[0]
         lowlinks[v] = index_counter[0]
         index_counter[0] += 1
         stack.append(v)
         on_stack[v] = True
-        
+
         for w in adj[v]:
             if w not in index:
                 strongconnect(w)
                 lowlinks[v] = min(lowlinks[v], lowlinks[w])
             elif on_stack.get(w, False):
                 lowlinks[v] = min(lowlinks[v], index[w])
-        
+
         if lowlinks[v] == index[v]:
             scc = []
             while True:
@@ -187,11 +187,11 @@ def find_cycles(graph):
                 if w == v:
                     break
             sccs.append(scc)
-    
+
     for v in sorted(all_nodes):
         if v not in index:
             strongconnect(v)
-    
+
     cycles = []
     for scc in sccs:
         if len(scc) < 2:
@@ -201,20 +201,20 @@ def find_cycles(graph):
                 if node in adj[node]:
                     cycles.append([node])
             continue
-        
+
         # Find cycles in this SCC using DFS
         scc_set = set(scc)
         scc_adj = {n: [d for d in adj[n] if d in scc_set] for n in scc}
-        
+
         visited = set()
         rec_stack = set()
         path = []
-        
+
         def dfs(node):
             visited.add(node)
             rec_stack.add(node)
             path.append(node)
-            
+
             for neighbor in scc_adj.get(node, []):
                 if neighbor not in visited:
                     dfs(neighbor)
@@ -227,16 +227,16 @@ def find_cycles(graph):
                     normalized = cyc[min_idx:] + cyc[:min_idx]
                     if normalized not in cycles:
                         cycles.append(normalized)
-            
+
             path.pop()
             rec_stack.remove(node)
-        
+
         for start in sorted(scc):
             visited.clear()
             rec_stack.clear()
             path.clear()
             dfs(start)
-    
+
     return cycles
 
 
@@ -275,7 +275,7 @@ def find_all_files_by_lines(files):
 
 def find_duplicate_configs(files):
     json_files = [f for f in files if f.suffix == '.json' and 'data' not in str(f).replace(os.sep, '/') and 'docs/architecture/' not in str(f).replace(os.sep, '/')]
-    
+
     configs = {}
     for f in json_files:
         try:
@@ -284,15 +284,15 @@ def find_duplicate_configs(files):
             configs[str(f).replace(os.sep, '/')] = data
         except Exception:
             pass
-    
+
     key_locations = defaultdict(list)
     for path, data in configs.items():
         if isinstance(data, dict):
             for key in data.keys():
                 key_locations[key].append(path)
-    
+
     duplicate_keys = {k: v for k, v in key_locations.items() if len(v) > 1}
-    
+
     value_locations = defaultdict(list)
     for path, data in configs.items():
         if isinstance(data, dict):
@@ -302,9 +302,9 @@ def find_duplicate_configs(files):
                     value_locations[val_str].append((path, key))
                 except Exception:
                     pass
-    
+
     duplicate_values = {k: v for k, v in value_locations.items() if len(v) > 1}
-    
+
     return {
         "duplicate_keys": duplicate_keys,
         "duplicate_values": duplicate_values,
@@ -314,17 +314,17 @@ def find_duplicate_configs(files):
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     print("[1/6] Scanning project files...")
     files = get_all_files()
     print(f"    Found {len(files)} files")
-    
+
     print("[2/6] Generating directory tree...")
     tree = generate_directory_tree()
     with open(OUTPUT_DIR / "directory_tree.txt", "w", encoding="utf-8") as f:
         f.write(tree)
     print("    Written directory_tree.txt")
-    
+
     print("[3/6] Analyzing module dependencies...")
     deps = analyze_dependencies(files)
     with open(OUTPUT_DIR / "module_dependencies.json", "w", encoding="utf-8") as f:
@@ -334,7 +334,7 @@ def main():
     with open(OUTPUT_DIR / "detailed_imports.json", "w", encoding="utf-8") as f:
         json.dump(deps["detailed_imports"], f, indent=2)
     print("    Written dependency JSONs")
-    
+
     print("[4/6] Finding circular dependencies...")
     cycles = find_cycles(deps["module_imports"])
     with open(OUTPUT_DIR / "circular_dependencies.txt", "w", encoding="utf-8") as f:
@@ -345,7 +345,7 @@ def main():
         else:
             f.write("No circular dependencies found at module level.\n")
     print(f"    Found {len(cycles)} cycles")
-    
+
     print("[5/6] Finding large files and duplicates...")
     large_files = find_large_files(files, threshold=1000)
     with open(OUTPUT_DIR / "large_files.txt", "w", encoding="utf-8") as f:
@@ -360,21 +360,21 @@ def main():
             for lines, path in all_files[:15]:
                 f.write(f"  {lines:>5} lines  {path}\n")
     print("    Written large_files.txt")
-    
+
     dup_configs = find_duplicate_configs(files)
     with open(OUTPUT_DIR / "duplicate_configs.txt", "w", encoding="utf-8") as f:
         f.write("Configuration files analyzed:\n")
         for cf in dup_configs["configs_found"]:
             f.write(f"  - {cf}\n")
         f.write("\n")
-        
+
         if dup_configs["duplicate_keys"]:
             f.write("Duplicate keys found across files:\n")
             for key, locations in dup_configs["duplicate_keys"].items():
                 f.write(f"  '{key}' in: {', '.join(locations)}\n")
         else:
             f.write("No duplicate keys found across configuration files.\n")
-        
+
         f.write("\n")
         if dup_configs["duplicate_values"]:
             f.write("Duplicate values found across files:\n")
@@ -387,13 +387,13 @@ def main():
         else:
             f.write("No duplicate values found across configuration files.\n")
     print("    Written duplicate_configs.txt")
-    
+
     print("[6/6] Generating architecture_report.md...")
     report = generate_report(files, tree, deps, cycles, large_files, dup_configs)
     with open(OUTPUT_DIR / "architecture_report.md", "w", encoding="utf-8") as f:
         f.write(report)
     print("    Written architecture_report.md")
-    
+
     print("Done!")
 
 
@@ -406,7 +406,7 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
                 total_py_lines += sum(1 for _ in fh)
         except Exception:
             pass
-    
+
     # Build import table
     import_table = ""
     for mod, imports in sorted(deps["module_imports"].items()):
@@ -414,12 +414,12 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
         if len(imports) > 5:
             imports_str += f" ... (+{len(imports) - 5} more)"
         import_table += f"| `{mod}` | {imports_str or '-'} |\n"
-    
+
     # Subpackage deps
     subpkg_table = ""
     for pkg, dep_pkgs in sorted(deps["subpackage_dependencies"].items()):
         subpkg_table += f"| `{pkg}` | {', '.join([f'`{d}`' for d in dep_pkgs]) or '-'} |\n"
-    
+
     cycles_section = ""
     if cycles:
         cycles_section = "**⚠️ Found circular dependencies:**\n\n"
@@ -427,7 +427,7 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
             cycles_section += f"{i}. `{' -> '.join(cycle)} -> {cycle[0]}`\n"
     else:
         cycles_section = "✅ **No circular dependencies detected at module level.**\n"
-    
+
     large_section = ""
     if large_files:
         large_section = f"**Found {len(large_files)} files exceeding 1000 lines:**\n\n"
@@ -440,7 +440,7 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
         all_files = find_all_files_by_lines(files)
         for lines, path in all_files[:15]:
             large_section += f"| {lines} | `{path}` |\n"
-    
+
     dup_keys_section = ""
     if dup_configs["duplicate_keys"]:
         dup_keys_section = "| Key | Found In |\n|-----|----------|\n"
@@ -448,7 +448,7 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
             dup_keys_section += f"| `{key}` | {', '.join(locations)} |\n"
     else:
         dup_keys_section = "No duplicate keys detected across configuration files.\n"
-    
+
     dup_vals_section = ""
     if dup_configs["duplicate_values"]:
         dup_vals_section = "| Value Preview | Locations |\n|---------------|-----------|\n"
@@ -458,7 +458,7 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
             dup_vals_section += f"| `{preview}` | {', '.join(paths)} |\n"
     else:
         dup_vals_section = "No duplicate values detected across configuration files.\n"
-    
+
     report = f"""# VCW Project Architecture Report
 
 > Generated: 2026-05-30
@@ -521,7 +521,7 @@ def generate_report(files, tree, deps, cycles, large_files, dup_configs):
 """
     for cf in dup_configs["configs_found"]:
         report += f"- `{cf}`\n"
-    
+
     report += f"""
 ### Duplicate Keys
 

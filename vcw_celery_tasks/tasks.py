@@ -22,7 +22,7 @@ def echo_task(self, message: str) -> str:
 
 
 @app.task(bind=True, max_retries=3, default_retry_delay=60)
-def generate_copy_task(self, req_data: dict) -> dict:
+def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
     """异步文案生成任务。
 
     调用 GenerationService._generate_copy_internal 完成生成，

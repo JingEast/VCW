@@ -16,13 +16,13 @@ from __future__ import annotations
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from llm.metrics.base import BaseMetricsCollector, MetricLabels
 
 # 复用 prompt_runtime 的定价与成本计算
-from prompt_runtime.prompt_metrics import MODEL_PRICING, compute_cost
+from prompt_runtime.prompt_metrics import compute_cost
 
 
 # ------------------------------------------------------------------------------
@@ -259,10 +259,12 @@ class TokenAccountingCollector(BaseMetricsCollector):
         lines.append("# TYPE llm_requests_total counter")
 
         # 按 (provider, model, user, status) 分组聚合
-        group_key = lambda r: (r.provider, r.model, r.user or "anonymous", r.status)
+        def _group_key(r: CallRecord) -> tuple:
+            return (r.provider, r.model, r.user or "anonymous", r.status)
+
         groups: Dict[tuple, List[CallRecord]] = {}
         for r in records:
-            groups.setdefault(group_key(r), []).append(r)
+            groups.setdefault(_group_key(r), []).append(r)
 
         for (provider, model, user, status), grp in sorted(groups.items()):
             labels_str = (

@@ -193,6 +193,94 @@ class OpenAIAdapter(BaseLLMAdapter):
             raise LLMServiceUnavailableError(msg, provider=self.provider_name, code=code) from exc
         raise LLMAdapterError(msg, provider=self.provider_name, code=code) from exc
 
+    # ------------------------------------------------------------------
+    # generate_stream
+    # ------------------------------------------------------------------
+
+    def generate_stream(self, messages: list[dict[str, str]], **kwargs: Any):
+        """流式生成（OpenAI SSE 格式）。
+
+        Yields:
+            LLMResponse: 每个片段包装为 LLMResponse，usage 在最终片段中填充。
+        """
+        payload = {
+            "model": kwargs.get("model") or self.model,
+            "messages": messages,
+            "temperature": kwargs.get("temperature", 0.7),
+            "max_tokens": kwargs.get("max_tokens", 2000),
+            "stream": True,
+        }
+        if "top_p" in kwargs:
+            payload["top_p"] = kwargs["top_p"]
+        if "stop" in kwargs:
+            payload["stop"] = kwargs["stop"]
+
+        with self._client.stream("POST", "/chat/completions", json=payload) as response:
+            try:
+                response.raise_for_status()
+            except httpx.TimeoutException as exc:
+                raise LLMTimeoutError(
+                    f"{self.provider_name} 流式请求超时", provider=self.provider_name
+                ) from exc
+            except httpx.HTTPStatusError as exc:
+                self._raise_from_http_error(exc)
+
+            import json as _json
+
+            full_content = ""
+            usage = None
+            for line in response.iter_lines():
+                if not line.startswith("data: "):
+                    continue
+                data = line[6:]
+                if data == "[DONE]":
+                    break
+                try:
+                    event = _json.loads(data)
+                except _json.JSONDecodeError:
+                    continue
+
+                # 某些 provider 会在最后一个 chunk 中返回 usage
+                if "usage" in event and event["usage"]:
+                    u = event["usage"]
+                    usage = TokenUsage(
+                        prompt_tokens=u.get("prompt_tokens", 0),
+                        completion_tokens=u.get("completion_tokens", 0),
+                        total_tokens=u.get("total_tokens", 0),
+                    )
+
+                choices = event.get("choices", [])
+                if not choices:
+                    continue
+
+                delta = choices[0].get("delta", {})
+                text = delta.get("content", "")
+                if not text and hasattr(delta, "reasoning_content"):
+                    text = getattr(delta, "reasoning_content", "") or ""
+                if text:
+                    full_content += text
+                    yield LLMResponse(
+                        content=text,
+                        provider=self.provider_name,
+                        model=payload["model"],
+                        usage=TokenUsage(),
+                        latency_ms=0.0,
+                    )
+
+            # 兜底：如果没有收到 usage，按已生成内容估算
+            if usage is None:
+                usage = TokenUsage()
+
+            # 最终 yield 一个携带完整 usage 的空内容标记（可选）
+            yield LLMResponse(
+                content="",
+                provider=self.provider_name,
+                model=payload["model"],
+                usage=usage,
+                latency_ms=0.0,
+                meta={"finish_reason": "stop"},
+            )
+
 
 # 别名
 KimiAdapter = OpenAIAdapter
