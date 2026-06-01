@@ -20,4 +20,5 @@ if __name__ == "__main__":
     print("=" * 60)
     print("访问地址: http://127.0.0.1:5000")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=True)  # nosec B104: development server
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", port=5000, debug=debug)  # nosec B104: development server
