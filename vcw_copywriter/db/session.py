@@ -4,18 +4,30 @@ SQLAlchemy Session 管理
 通过环境变量 DATABASE_URL 配置连接字符串。
 """
 import os
+from typing import Any
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.pool import StaticPool
 
 # 优先使用环境变量 DATABASE_URL，否则回退到本地 SQLite
 DEFAULT_DATABASE_URL = "sqlite:///data/vcw.db"
 DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
+# SQLite :memory: 需要 StaticPool，否则每次新连接都是空数据库
+_is_memory_sqlite = DATABASE_URL.startswith("sqlite:///:memory:")
+_engine_kwargs: dict[str, Any] = {
+    "echo": False,
+    "pool_pre_ping": True,          # 自动检测断连
+    "pool_recycle": 3600,           # 1 小时回收连接
+}
+if _is_memory_sqlite:
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+    _engine_kwargs["poolclass"] = StaticPool
+
 engine = create_engine(
     DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,          # 自动检测断连
-    pool_recycle=3600,           # 1 小时回收连接
+    **_engine_kwargs,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

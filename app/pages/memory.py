@@ -59,18 +59,11 @@ def memory_delete(entry_id):
     """删除记忆条目"""
     memory_bank = get_service("memory_bank")
     try:
-        # TODO: MemoryBank 目前未提供 delete_entry 公共方法，
-        # 直接操作 data 是临时 workaround，待底层补全后替换。
-        new_entries = [e for e in memory_bank.data["entries"] if e["id"] != entry_id]
-        memory_bank.data["entries"] = new_entries
-        memory_bank.data["topics_index"] = {}
-        for e in new_entries:
-            topic_key = e["topic"].strip()
-            if topic_key not in memory_bank.data["topics_index"]:
-                memory_bank.data["topics_index"][topic_key] = []
-            memory_bank.data["topics_index"][topic_key].append(e["id"])
-        memory_bank._save()
-        flash(f"条目 {entry_id} 已删除", "success")
+        ok = memory_bank.delete_entry(entry_id)
+        if ok:
+            flash(f"条目 {entry_id} 已删除", "success")
+        else:
+            flash(f"条目 {entry_id} 不存在", "warning")
     except Exception as e:
         flash(f"删除失败: {str(e)}", "error")
     return redirect(url_for("memory_page"))

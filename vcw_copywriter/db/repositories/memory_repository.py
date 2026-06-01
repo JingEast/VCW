@@ -60,6 +60,13 @@ class MemoryRepository(BaseRepository):
             return True
         return False
 
+    def count_pending(self) -> int:
+        return (
+            self.session.query(MemoryEntry)
+            .filter(MemoryEntry.is_avoided.is_(False))
+            .count()
+        )
+
     def generate_report(self) -> str:
         total = self.session.query(MemoryEntry).count()
         avoided = self.session.query(MemoryEntry).filter(MemoryEntry.is_avoided).count()

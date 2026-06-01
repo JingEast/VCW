@@ -18,11 +18,8 @@ def index():
 
     recent_files = handler.handle_list_recent_files(limit=5)
 
-    entry_count = len(memory_bank.data.get("entries", []))
-    pending_count = sum(
-        1 for e in memory_bank.data.get("entries", [])
-        if not e.get("is_avoided", False)
-    )
+    entry_count = memory_bank.get_entry_count()
+    pending_count = memory_bank.get_pending_count()
 
     # 检查是否有从热点页面带过来的预填充参数
     prefill = {
