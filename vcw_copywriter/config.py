@@ -1,6 +1,7 @@
 """
 配置管理模块
 """
+import copy
 import json
 from pathlib import Path
 
@@ -37,10 +38,10 @@ class Config:
         if self.config_path.exists():
             with open(self.config_path, "r", encoding="utf-8") as f:
                 loaded = json.load(f)
-                # 合并默认值，确保新字段存在
-                merged = self._deep_merge(DEFAULT_CONFIG.copy(), loaded)
+                # 合并默认值，确保新字段存在（深拷贝防止污染全局默认值）
+                merged = self._deep_merge(copy.deepcopy(DEFAULT_CONFIG), loaded)
                 return merged
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
     def _deep_merge(self, base, update):
         for key, value in update.items():

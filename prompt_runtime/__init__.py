@@ -21,8 +21,8 @@ from .prompt_metrics import (
     PromptMetricsSnapshot,
     PromptCallInfo,
     compute_cost,
-    MODEL_PRICING,
 )
+from llm.metrics.pricing import MODEL_PRICING
 from .prompt_cache import (
     IPromptCache,
     PromptCache,

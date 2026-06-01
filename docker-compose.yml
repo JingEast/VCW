@@ -43,6 +43,37 @@ services:
       timeout: 3s
       retries: 5
 
+  # Web 服务（Flask 应用）
+  web:
+    build: .
+    container_name: vcw-web
+    command: python wsgi.py
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
+      VCW_API_KEY: ${VCW_API_KEY:-}
+      VCW_BASE_URL: ${VCW_BASE_URL:-https://api.openai.com/v1}
+      VCW_MODEL: ${VCW_MODEL:-gpt-4o}
+      FLASK_DEBUG: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   # Celery Worker（可选，生产环境使用）
   worker:
     build: .

@@ -13,7 +13,18 @@ def create_app() -> Flask:
         static_folder=os.path.join(base_dir, "static"),
         static_url_path="/static",
     )
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        import warnings
+        warnings.warn(
+            "SECRET_KEY environment variable is not set. "
+            "Using a random key which will invalidate sessions across restarts. "
+            "Please set SECRET_KEY in production.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        secret_key = os.urandom(32).hex()
+    app.config["SECRET_KEY"] = secret_key
 
     # 初始化应用容器（dependency-injector）
     from app.core.container import AppContainer, set_container
@@ -65,6 +76,18 @@ def create_app() -> Flask:
     app.register_blueprint(api_editor.bp, url_prefix="/api/v1")
     app.register_blueprint(api_prompts.bp, url_prefix="/api/v1")
     app.register_blueprint(api_misc.bp, url_prefix="/api/v1")
+
+    # ============================================================
+    # 健康检查端点（供 Docker / 负载均衡器使用）
+    # ============================================================
+    @app.route("/health")
+    def health():
+        from celery_app import health_check as celery_health
+        celery_status = celery_health()
+        return jsonify({
+            "status": "ok" if celery_status["status"] == "ok" else "degraded",
+            "celery": celery_status,
+        }), 200 if celery_status["status"] == "ok" else 503
 
     # ============================================================
     # 兼容处理：裸端点名与 request.endpoint 修补

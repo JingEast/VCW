@@ -70,7 +70,7 @@ def parse_module_level_imports(fpath: Path) -> list[tuple[str, str]]:
     Imports inside function/method bodies are ignored to avoid flagging
     local imports used for breaking circular dependencies.
     """
-    results = []
+    results: list[tuple[str, str]] = []
     try:
         with open(fpath, "r", encoding="utf-8") as f:
             source = f.read()

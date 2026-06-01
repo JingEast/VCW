@@ -23,7 +23,7 @@ except ImportError:
     _PROMETHEUS_AVAILABLE = False
 
 # 从 llm/ 层复用定价与成本计算，避免反向依赖
-from llm.metrics.pricing import MODEL_PRICING, compute_cost
+from llm.metrics.pricing import compute_cost
 
 
 # ------------------------------------------------------------------------------
