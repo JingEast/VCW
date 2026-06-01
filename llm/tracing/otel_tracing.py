@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any, Dict, Optional
 
@@ -126,6 +127,7 @@ class OtelTracingMiddleware(BaseTracingMiddleware):
         self.tracer = tracer or _get_tracer()
         self.config = config
         self._spans: dict[str, Any] = {}
+        self._lock = threading.Lock()
 
     def pre_call(
         self,
@@ -169,7 +171,8 @@ class OtelTracingMiddleware(BaseTracingMiddleware):
             span_id=str(span_id),
             attributes={"span": span, "start_ns": time.time_ns()},
         )
-        self._spans[ctx.trace_id] = span
+        with self._lock:
+            self._spans[ctx.trace_id] = span
         return ctx
 
     def post_call(
@@ -182,31 +185,35 @@ class OtelTracingMiddleware(BaseTracingMiddleware):
         """结束 Gateway 级 span。"""
         span = ctx.attributes.get("span")
         if span is None:
-            span = self._spans.pop(ctx.trace_id, None)
+            with self._lock:
+                span = self._spans.pop(ctx.trace_id, None)
         if span is None:
             return
 
-        start_ns = ctx.attributes.get("start_ns")
-        if start_ns:
-            latency_ms = (time.time_ns() - start_ns) / 1_000_000
-            span.set_attribute("llm.latency_ms", round(latency_ms, 3))
+        try:
+            start_ns = ctx.attributes.get("start_ns")
+            if start_ns:
+                latency_ms = (time.time_ns() - start_ns) / 1_000_000
+                span.set_attribute("llm.latency_ms", round(latency_ms, 3))
 
-        if response is not None:
-            span.set_attribute("llm.response.model", response.model)
-            span.set_attribute("llm.response.tokens.prompt", response.usage.prompt_tokens)
-            span.set_attribute("llm.response.tokens.completion", response.usage.completion_tokens)
-            span.set_attribute("llm.response.tokens.total", response.usage.total_tokens)
+            if response is not None:
+                span.set_attribute("llm.response.model", response.model)
+                span.set_attribute("llm.response.tokens.prompt", response.usage.prompt_tokens)
+                span.set_attribute("llm.response.tokens.completion", response.usage.completion_tokens)
+                span.set_attribute("llm.response.tokens.total", response.usage.total_tokens)
 
-        if error is not None:
-            if StatusCode is not None:
-                span.set_status(StatusCode.ERROR, str(error))
-            span.record_exception(error)
-        else:
-            if StatusCode is not None:
-                span.set_status(StatusCode.OK)
+            if error is not None:
+                if StatusCode is not None:
+                    span.set_status(StatusCode.ERROR, str(error))
+                span.record_exception(error)
+            else:
+                if StatusCode is not None:
+                    span.set_status(StatusCode.OK)
 
-        span.end()
-        self._spans.pop(ctx.trace_id, None)
+            span.end()
+        finally:
+            with self._lock:
+                self._spans.pop(ctx.trace_id, None)
 
     def start_child_span(self, name: str, parent_ctx: TraceContext, attributes: Optional[Dict[str, Any]] = None) -> Any:
         """从 parent Gateway span 启动子 span。

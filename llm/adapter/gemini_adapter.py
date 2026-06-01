@@ -59,6 +59,9 @@ class GeminiAdapter(BaseLLMAdapter):
             timeout=self.timeout,
         )
 
+    def close(self) -> None:
+        self._client.close()
+
     # ------------------------------------------------------------------
     # chat
     # ------------------------------------------------------------------

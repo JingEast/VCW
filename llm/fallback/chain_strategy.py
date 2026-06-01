@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Any, List, Optional
 
 from .base import BaseFallbackStrategy, FallbackResult
@@ -17,6 +18,7 @@ class ChainFallbackStrategy(BaseFallbackStrategy):
     def __init__(self, priority: List[str]) -> None:
         self.priority = priority
         self._history: dict[str, list[tuple[bool, float]]] = {}
+        self._lock = threading.Lock()
 
     def decide(
         self,
@@ -65,4 +67,5 @@ class ChainFallbackStrategy(BaseFallbackStrategy):
         success: bool,
         latency_ms: float,
     ) -> None:
-        self._history.setdefault(provider, []).append((success, latency_ms))
+        with self._lock:
+            self._history.setdefault(provider, []).append((success, latency_ms))

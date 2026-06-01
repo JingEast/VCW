@@ -146,6 +146,13 @@ class BaseLLMAdapter(ABC):
         """返回当前账号可访问的模型列表。"""
         return []
 
+    def close(self) -> None:
+        """关闭底层连接资源（如 httpx.Client）。
+
+        子类若持有可关闭资源，应覆盖此方法。
+        """
+        pass
+
     def __repr__(self) -> str:
         return (
             f"<{self.__class__.__name__} "
