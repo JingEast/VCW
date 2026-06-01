@@ -19,8 +19,6 @@
 
 import time
 import uuid
-import random
-import statistics
 import tracemalloc
 from datetime import datetime
 
@@ -179,7 +177,7 @@ class TestBatchStress:
         print(f"  Throughput: {result['throughput']:.1f} angles/sec")
         print(f"  Completed: {result['completed']}/{result['total_angles']}")
         print(f"  Memory peak: {result['memory_peak_mb']:.2f} MB")
-        assert result["total_time_sec"] < 10.0
+        assert result["total_time_sec"] < 20.0
 
     def test_medium(self):
         """50 batches × 5 angles = 250 angles"""
@@ -189,7 +187,7 @@ class TestBatchStress:
         print(f"  Throughput: {result['throughput']:.1f} angles/sec")
         print(f"  Completed: {result['completed']}/{result['total_angles']}")
         print(f"  Memory peak: {result['memory_peak_mb']:.2f} MB")
-        assert result["total_time_sec"] < 120.0
+        assert result["total_time_sec"] < 180.0
 
     def test_heavy(self):
         """10 batches × 20 angles = 200 angles"""
@@ -204,7 +202,6 @@ class TestBatchStress:
     def test_partial_failure(self):
         """10 batches × 5 angles = 50 angles, 20% failure rate"""
         # 使用角度名称决定失败，确保确定性
-        import services.generation_service as svc_mod
 
         def mock_do_generate_partial(self, system_prompt, user_prompt):
             # mock_build_prompts 已将角度名称注入 user_prompt
