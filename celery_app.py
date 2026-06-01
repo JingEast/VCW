@@ -66,6 +66,14 @@ app.conf.update(
     # Broker 连接池
     broker_connection_retry_on_startup=True,
     broker_connection_max_retries=10,
+
+    # 崩溃恢复：任务完成后再确认，避免 worker 崩溃导致任务丢失
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+
+    # 结果后端清理
+    result_backend_max_retries=3,
+    result_chord_retry_interval=5,
 )
 
 

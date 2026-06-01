@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import datetime
 
@@ -88,11 +89,13 @@ def generate_batch_task(self, req_data: dict, angles: list, batch_id: str) -> di
 
     subtasks = []
     for angle in angles:
-        sub_id = str(uuid.uuid4())[:12]
+        # 使用确定性 ID（batch_id + angle hash）保证幂等性：
+        # 同一批次的同一角度始终生成相同子任务 ID，避免重复创建。
+        sub_id = _make_subtask_id(batch_id, angle)
         sub_req = {**req_data, "angle": angle, "_batch_id": batch_id}
 
-        # 预创建子任务 DB 记录
-        _create_job(
+        # 预创建子任务 DB 记录（若已存在则跳过，保证幂等）
+        _create_job_if_not_exists(
             id=sub_id,
             job_type="generate",
             status="pending",
@@ -146,6 +149,30 @@ def health_check_task(self) -> dict:
 # ------------------------------------------------------------------------------
 # 内部辅助函数
 # ------------------------------------------------------------------------------
+
+def _make_subtask_id(batch_id: str, angle: str) -> str:
+    """生成确定性子任务 ID（batch_id + angle 的哈希），保证幂等性。"""
+    raw = f"{batch_id}:{angle}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
+
+
+def _create_job_if_not_exists(**kwargs) -> None:
+    """创建 GenerationJob 记录（若 ID 已存在则跳过，保证幂等）。"""
+    from vcw_copywriter.db.session import get_session
+    from vcw_copywriter.db.models import GenerationJob
+
+    job_id = kwargs.get("id")
+    session = get_session()
+    try:
+        existing = session.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+        if existing is not None:
+            return
+        job = GenerationJob(**kwargs)
+        session.add(job)
+        session.commit()
+    finally:
+        session.close()
+
 
 def _create_job(**kwargs) -> None:
     """创建 GenerationJob 记录。"""

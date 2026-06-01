@@ -25,6 +25,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -42,6 +47,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
 
   # Web 服务（Flask 应用）
   web:
@@ -73,6 +83,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
 
   # Celery Worker（可选，生产环境使用）
   worker:
@@ -90,6 +105,11 @@ services:
     volumes:
       - .:/app
     working_dir: /app
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
 
   # Celery Beat（定时任务调度，可选）
   beat:
@@ -107,6 +127,11 @@ services:
     volumes:
       - .:/app
     working_dir: /app
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
 
 volumes:
   redis_data:
