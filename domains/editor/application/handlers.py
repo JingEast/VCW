@@ -1,13 +1,8 @@
 """Editor domain application handlers."""
 
 
-from services.editor_service import (
-    DeAIOptimizeRequest,
-    SaveDraftRequest,
-    UpdateDraftRequest,
-)
-
 from .commands import DeAIOptimizeCommand, SaveDraftCommand, UpdateDraftCommand
+from .dto import DeAIOptimizeRequest, SaveDraftRequest, UpdateDraftRequest
 from .queries import GetDiffQuery, GetDraftQuery, ListDraftsQuery
 
 

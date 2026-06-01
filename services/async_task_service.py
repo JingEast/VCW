@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from services.generation_service import GenerationError
 from services.base.permission_manager import PermissionDenied
 
+from domains.generation.application.dto import AsyncBatchSubmitDto, AsyncTaskSubmitDto
 from domains.generation.domain.entities import GenerationJobEntity
 from domains.generation.infrastructure.generation_mapper import GenerationJobMapper
 
@@ -37,21 +38,6 @@ class AsyncTaskError(GenerationError):
         code: Optional[str] = None,
     ):
         super().__init__(message, code=code)
-
-
-@dataclass(frozen=True)
-class AsyncTaskSubmitDto:
-    """异步单任务提交 DTO。"""
-
-    req_data: Dict
-
-
-@dataclass(frozen=True)
-class AsyncBatchSubmitDto:
-    """异步批量任务提交 DTO。"""
-
-    req_data: Dict
-    angles: List[str]
 
 
 @dataclass

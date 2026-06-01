@@ -16,6 +16,11 @@ from typing import Dict, List, Optional
 
 from services.base.base_service import BaseService
 from services.base.permission_manager import PermissionDenied
+from domains.editor.application.dto import (
+    DeAIOptimizeRequest,
+    SaveDraftRequest,
+    UpdateDraftRequest,
+)
 from domains.editor.domain.repository import IDraftRepository
 from interfaces.generation_client import IGenerationServiceClient
 
@@ -33,31 +38,6 @@ class EditorError(Exception):
         self.code = code
         self.details = details or {}
         super().__init__(self.message)
-
-
-# ------------------------------------------------------------------------------
-# Request DTOs（仅用于多字段场景）
-# ------------------------------------------------------------------------------
-
-@dataclass
-class SaveDraftRequest:
-    original_content: str
-    topic: str
-    source_filepath: str = ""
-    meta: str = ""
-
-
-@dataclass
-class UpdateDraftRequest:
-    draft_id: str
-    edited_content: str
-    edit_note: str = ""
-    finalize: bool = False
-
-
-@dataclass
-class DeAIOptimizeRequest:
-    content: str
 
 
 # ------------------------------------------------------------------------------

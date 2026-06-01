@@ -21,8 +21,8 @@ from typing import Any, Dict, List, Optional
 
 from llm.metrics.base import BaseMetricsCollector, MetricLabels
 
-# 复用 prompt_runtime 的定价与成本计算
-from prompt_runtime.prompt_metrics import compute_cost
+# 复用 llm/ 层的定价与成本计算，避免 llm -> prompt_runtime 反向依赖
+from llm.metrics.pricing import compute_cost
 
 
 # ------------------------------------------------------------------------------

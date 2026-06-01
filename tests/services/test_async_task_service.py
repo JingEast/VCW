@@ -17,13 +17,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from services.async_task_service import (
-    AsyncBatchSubmitDto,
-    AsyncTaskError,
-    AsyncTaskService,
-    AsyncTaskSubmitDto,
-    TaskStatusDto,
-)
+from domains.generation.application.dto import AsyncBatchSubmitDto, AsyncTaskSubmitDto
+from services.async_task_service import AsyncTaskError, AsyncTaskService, TaskStatusDto
 from services.base.permission_manager import PermissionDenied
 from vcw_copywriter.db.models import GenerationJob
 from vcw_copywriter.db.session import get_session

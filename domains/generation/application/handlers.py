@@ -10,11 +10,8 @@ from .commands import (
     SubmitAsyncBatchCommand,
     SubmitAsyncCommand,
 )
+from .dto import AsyncBatchSubmitDto, AsyncTaskSubmitDto
 from .queries import GenerateStreamQuery, GetAsyncBatchStatusQuery, GetAsyncStatusQuery
-from services.async_task_service import (
-    AsyncBatchSubmitDto,
-    AsyncTaskSubmitDto,
-)
 
 
 class GenerationHandler:

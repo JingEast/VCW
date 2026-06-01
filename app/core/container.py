@@ -21,6 +21,8 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from dependency_injector import containers, providers
 
+from interfaces.service_provider import register_service_provider
+
 if TYPE_CHECKING:
     from vcw_copywriter.config import Config
     from vcw_copywriter.memory import MemoryBank
@@ -475,6 +477,7 @@ def set_container(container: AppContainer) -> None:
     """在应用初始化时设置全局容器句柄（供无请求上下文场景使用）。"""
     global _container
     _container = container
+    register_service_provider(get_service)
 
 
 def get_container() -> AppContainer:

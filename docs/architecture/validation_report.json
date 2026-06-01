@@ -1,0 +1,40 @@
+{
+  "edges": {
+    "alembic": [
+      "vcw_copywriter"
+    ],
+    "app": [
+      "domains",
+      "interfaces",
+      "services"
+    ],
+    "clients": [
+      "interfaces"
+    ],
+    "infrastructure": [
+      "domains",
+      "vcw_copywriter"
+    ],
+    "prompt_runtime": [
+      "llm"
+    ],
+    "services": [
+      "domains",
+      "interfaces",
+      "vcw_copywriter"
+    ],
+    "tests": [
+      "clients",
+      "domains",
+      "interfaces",
+      "llm",
+      "prompt_runtime",
+      "services",
+      "vcw_celery_tasks",
+      "vcw_copywriter"
+    ]
+  },
+  "cycles": [],
+  "violations": [],
+  "infra_leaks": []
+}

@@ -29,7 +29,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
     支持进度上报、失败重试以及死信队列。
     作为批量子任务时，自动更新父批次进度。
     """
-    from app.core.container import get_service
+    from interfaces.service_provider import get_service
     from services.generation_service import GenerationError
 
     svc = get_service("generation_service")

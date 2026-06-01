@@ -107,7 +107,7 @@ class TestCeleryTasks:
             raise KeyError(name)
 
         monkeypatch.setattr(
-            "app.core.container.get_service",
+            "interfaces.service_provider.get_service",
             mock_get_service,
         )
 
@@ -134,7 +134,7 @@ class TestCeleryTasks:
             raise KeyError(name)
 
         monkeypatch.setattr(
-            "app.core.container.get_service",
+            "interfaces.service_provider.get_service",
             mock_get_service,
         )
 
@@ -203,7 +203,7 @@ class TestCeleryTasks:
             raise KeyError(name)
 
         monkeypatch.setattr(
-            "app.core.container.get_service",
+            "interfaces.service_provider.get_service",
             mock_get_service,
         )
 

@@ -5,13 +5,12 @@ EditorService 单元测试
 import pytest
 from typing import Dict, List, Optional, Tuple
 
-from services.editor_service import (
-    EditorService,
-    EditorError,
+from domains.editor.application.dto import (
+    DeAIOptimizeRequest,
     SaveDraftRequest,
     UpdateDraftRequest,
-    DeAIOptimizeRequest,
 )
+from services.editor_service import EditorService, EditorError
 from domains.editor.domain.repository import IDraftRepository
 from interfaces.generation_client import IGenerationServiceClient
 
