@@ -11,23 +11,24 @@
   - 管理业务异常，统一抛出 GenerationError，由 routes 层转换为 HTTP 响应。
 """
 
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Iterator, Optional, Callable
+
+from typing import TYPE_CHECKING
 
 from services.base.base_service import BaseService
 from services.base.permission_manager import PermissionDenied
 from domains.generation.domain.repository import (
     ICopyRepository,
     IMemoryRepository,
-    ITaskRepository,
 )
 from domains.editor.domain.repository import IDraftRepository
 from vcw_copywriter.prompt_builder import build_full_prompts
-from vcw_copywriter.generator import CopywriterGenerator
-from vcw_copywriter.model_router import ModelRouter
 from vcw_copywriter.checker import check_and_report
 from vcw_copywriter.batch_generator import BatchGenerator
+
+if TYPE_CHECKING:
+    from llm.gateway.llm_gateway import LLMGateway
 
 
 class GenerationError(Exception):
@@ -61,7 +62,7 @@ class GenerationService(BaseService):
         draft_repo: IDraftRepository,
         transaction_manager=None,
         permission_manager=None,
-        task_repo: Optional[ITaskRepository] = None,
+        llm_gateway: Optional["LLMGateway"] = None,
     ) -> None:
         """
         Args:
@@ -71,13 +72,13 @@ class GenerationService(BaseService):
             draft_repo: IDraftRepository 实例（草稿持久化）。
             transaction_manager: 事务管理器（可选）。
             permission_manager: 权限管理器（可选）。
-            task_repo: ITaskRepository 实例（异步任务队列，可选，向后兼容）。
+            llm_gateway: LLMGateway 实例（推荐，接入统一 adapter 层）。
         """
         super().__init__(config, transaction_manager, permission_manager)
         self.copy_repo = copy_repo
-        self.task_repo = task_repo
         self.memory_repo = memory_repo
         self.draft_repo = draft_repo
+        self.llm_gateway = llm_gateway
 
     def _on_permission_denied(self, exc: PermissionDenied) -> None:
         """将权限拒绝转换为 GenerationError，保持路由层异常契约。"""
@@ -132,6 +133,12 @@ class GenerationService(BaseService):
         return topic, system_prompt, user_prompt
 
     def _do_generate(self, system_prompt: str, user_prompt: str) -> Tuple[bool, str, str]:
+        if self.llm_gateway is not None:
+            return self._do_generate_via_gateway(system_prompt, user_prompt)
+        # 向后兼容：未注入 gateway 时回退到旧实现（已标记 deprecated）
+        from vcw_copywriter.model_router import ModelRouter
+        from vcw_copywriter.generator import CopywriterGenerator
+
         llm_config = self._get_llm_config()
         endpoints = llm_config.get("endpoints")
         if endpoints:
@@ -146,6 +153,26 @@ class GenerationService(BaseService):
             generator = CopywriterGenerator(llm_config)
             success, content, meta = generator.generate(system_prompt, user_prompt)
         return success, content, meta
+
+    def _do_generate_via_gateway(self, system_prompt: str, user_prompt: str) -> Tuple[bool, str, str]:
+        """通过 LLMGateway 生成文案（新路径）。"""
+        llm_config = self._get_llm_config()
+        try:
+            response = self.llm_gateway.complete(  # type: ignore[union-attr]
+                prompt=user_prompt,
+                system=system_prompt,
+                temperature=llm_config.get("temperature", 0.7),
+                max_tokens=llm_config.get("max_tokens", 2000),
+            )
+        except Exception as exc:
+            return False, "", f"生成失败: {exc}"
+
+        meta = (
+            f"模型: {response.model} | "
+            f"Provider: {response.provider} | "
+            f"Tokens: {response.usage.total_tokens}"
+        )
+        return True, response.content, meta
 
     def generate_text(self, system_prompt: str, user_prompt: str) -> Tuple[bool, str, str]:
         """
@@ -238,6 +265,14 @@ class GenerationService(BaseService):
 
         topic, system_prompt, user_prompt = self._build_prompts(req_data)
 
+        if self.llm_gateway is not None:
+            yield from self._generate_stream_via_gateway(system_prompt, user_prompt)
+            return
+
+        # 向后兼容
+        from vcw_copywriter.model_router import ModelRouter
+        from vcw_copywriter.generator import CopywriterGenerator
+
         llm_config = self._get_llm_config()
         endpoints = llm_config.get("endpoints")
         if endpoints:
@@ -264,6 +299,34 @@ class GenerationService(BaseService):
                     return
                 yield "content", text
             yield "done", "ok"
+
+    def _generate_stream_via_gateway(
+        self, system_prompt: str, user_prompt: str
+    ) -> Iterator[Tuple[str, str]]:
+        """通过 LLMGateway 流式生成（新路径）。"""
+        llm_config = self._get_llm_config()
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_prompt})
+
+        meta_sent = False
+        try:
+            for chunk in self.llm_gateway.generate_stream(  # type: ignore[union-attr]
+                messages,
+                temperature=llm_config.get("temperature", 0.7),
+                max_tokens=llm_config.get("max_tokens", 2000),
+            ):
+                if not meta_sent:
+                    yield "meta", f"model:{chunk.model}|provider:{chunk.provider}"
+                    meta_sent = True
+                if chunk.content:
+                    yield "content", chunk.content
+        except Exception as exc:
+            yield "error", f"[错误] 流式生成失败: {exc}"
+            return
+
+        yield "done", "ok"
 
     # ------------------------------------------------------------------
     # 批量生成
@@ -294,266 +357,5 @@ class GenerationService(BaseService):
             raise GenerationError(f"批量生成失败: {str(e)}", code="BATCH_GENERATION_FAILED")
 
     # ------------------------------------------------------------------
-    # 异步任务
+    # 异步任务（已迁移至 AsyncTaskService）
     # ------------------------------------------------------------------
-
-    def submit_async_generate(self, req_data: Dict) -> str:
-        topic = req_data.get("topic", "").strip()
-        if not topic:
-            raise GenerationError("主题不能为空", code="MISSING_TOPIC")
-
-        self._require_permission("generate")
-
-        from vcw_celery_tasks.tasks import generate_copy_task
-        from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
-        import uuid
-
-        result = generate_copy_task.delay(req_data)
-        task_id = result.id
-
-        session = get_session()
-        try:
-            job = GenerationJob(
-                id=str(uuid.uuid4())[:12],
-                job_type="generate",
-                status="pending",
-                progress=0,
-                message="等待执行...",
-                celery_task_id=task_id,
-                created_at=datetime.utcnow(),
-            )
-            session.add(job)
-            session.commit()
-        finally:
-            session.close()
-
-        return task_id
-
-    def get_async_status(self, task_id: str) -> Optional[Dict]:
-        from celery.result import AsyncResult
-        from celery_app import app as celery_app
-        from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
-
-        session = get_session()
-        try:
-            job = session.query(GenerationJob).filter(
-                GenerationJob.celery_task_id == task_id
-            ).first()
-        finally:
-            session.close()
-
-        if not job:
-            raise GenerationError("任务不存在", code="TASK_NOT_FOUND")
-
-        result = AsyncResult(task_id, app=celery_app)
-
-        _STATE_MAP = {
-            "PENDING": "pending",
-            "STARTED": "running",
-            "PROGRESS": "running",
-            "RETRY": "pending",
-            "SUCCESS": "completed",
-            "FAILURE": "failed",
-            "REVOKED": "cancelled",
-        }
-
-        state = result.state
-        status = _STATE_MAP.get(state, "pending")
-
-        progress = 0
-        message = ""
-        result_data = {}
-        error = ""
-
-        if state == "PROGRESS" and isinstance(result.info, dict):
-            progress = result.info.get("progress", 0)
-            message = result.info.get("message", "")
-        elif state == "SUCCESS":
-            progress = 100
-            message = "生成完成"
-            result_data = result.result if isinstance(result.result, dict) else {}
-        elif state == "FAILURE":
-            message = "生成失败"
-            error = str(result.result) if result.result else ""
-        elif state == "REVOKED":
-            message = "任务已取消"
-        elif state == "STARTED":
-            message = "正在生成..."
-            progress = 10
-        elif state == "RETRY":
-            message = "任务正在重试..."
-        else:
-            message = "等待执行..."
-
-        completed_at = None
-        if result.date_done:
-            completed_at = result.date_done.strftime("%Y-%m-%d %H:%M:%S")
-
-        return {
-            "id": task_id,
-            "type": "generate",
-            "status": status,
-            "progress": progress,
-            "message": message,
-            "result": result_data,
-            "error": error,
-            "created_at": "",
-            "started_at": "",
-            "completed_at": completed_at or "",
-        }
-
-    def cancel_async_task(self, task_id: str) -> bool:
-        from celery_app import app as celery_app
-
-        celery_app.control.revoke(task_id, terminate=True)
-        return True
-
-    # ------------------------------------------------------------------
-    # 异步批量任务
-    # ------------------------------------------------------------------
-
-    def submit_async_batch(self, req_data: Dict, angles: List[str]) -> str:
-        topic = req_data.get("topic", "").strip()
-        if not topic:
-            raise GenerationError("主题不能为空", code="MISSING_TOPIC")
-        if not angles:
-            raise GenerationError("角度列表不能为空", code="MISSING_ANGLES")
-
-        self._require_permission("generate_batch")
-
-        from vcw_celery_tasks.tasks import generate_batch_task
-        from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
-        import uuid
-
-        batch_id = str(uuid.uuid4())[:12]
-
-        session = get_session()
-        try:
-            job = GenerationJob(
-                id=batch_id,
-                job_type="batch",
-                status="pending",
-                progress=0,
-                message=f"等待执行... 共 {len(angles)} 个角度",
-                result={"total": len(angles), "completed": 0, "failed": 0, "cancelled": 0},
-                created_at=datetime.utcnow(),
-            )
-            session.add(job)
-            session.commit()
-        finally:
-            session.close()
-
-        generate_batch_task.delay(req_data, angles, batch_id=batch_id)
-        return batch_id
-
-    def get_async_batch_status(self, batch_id: str) -> Optional[Dict]:
-        from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
-
-        session = get_session()
-        try:
-            parent = session.query(GenerationJob).filter(
-                GenerationJob.id == batch_id,
-                GenerationJob.job_type == "batch",
-            ).first()
-
-            if not parent:
-                raise GenerationError("批次不存在", code="BATCH_NOT_FOUND")
-
-            children = session.query(GenerationJob).filter(
-                GenerationJob.parent_batch_id == batch_id,
-            ).all()
-        finally:
-            session.close()
-
-        total = len(children)
-        completed = sum(1 for c in children if c.status == "completed")
-        failed = sum(1 for c in children if c.status == "failed")
-        cancelled = sum(1 for c in children if c.status == "cancelled")
-        pending = total - completed - failed - cancelled
-
-        status = parent.status
-        if status not in ("completed", "failed", "cancelled", "partial"):
-            if pending == total:
-                status = "pending"
-            elif pending > 0:
-                status = "running"
-            else:
-                if failed == 0 and cancelled == 0:
-                    status = "completed"
-                elif completed > 0:
-                    status = "partial"
-                elif cancelled > 0:
-                    status = "cancelled"
-                else:
-                    status = "failed"
-
-        progress = int((completed + failed + cancelled) / total * 100) if total > 0 else 0
-
-        items = []
-        for child in children:
-            angle = (child.result or {}).get("angle", "") if child.result else ""
-            items.append({
-                "subtask_id": child.id,
-                "angle": angle,
-                "status": child.status,
-                "result": child.result or {},
-                "error": child.error or "",
-            })
-
-        def _fmt(dt):
-            return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else ""
-
-        return {
-            "batch_id": batch_id,
-            "status": status,
-            "total": total,
-            "completed": completed,
-            "failed": failed,
-            "cancelled": cancelled,
-            "pending": pending,
-            "progress_percent": progress,
-            "items": items,
-            "created_at": _fmt(parent.created_at),
-            "started_at": _fmt(parent.started_at),
-            "completed_at": _fmt(parent.completed_at),
-            "message": f"{completed}/{total} 完成, {failed} 失败, {cancelled} 取消, {pending} 等待中",
-        }
-
-    def cancel_async_batch(self, batch_id: str) -> bool:
-        from celery_app import app as celery_app
-        from vcw_copywriter.db.session import get_session
-        from vcw_copywriter.db.models import GenerationJob
-
-        session = get_session()
-        try:
-            parent = session.query(GenerationJob).filter(
-                GenerationJob.id == batch_id,
-                GenerationJob.job_type == "batch",
-            ).first()
-
-            if not parent:
-                raise GenerationError("批次不存在", code="BATCH_NOT_FOUND")
-
-            children = session.query(GenerationJob).filter(
-                GenerationJob.parent_batch_id == batch_id,
-            ).all()
-
-            revoked = 0
-            for child in children:
-                if child.status in ("pending", "running"):
-                    if child.celery_task_id:
-                        celery_app.control.revoke(child.celery_task_id, terminate=True)
-                    child.status = "cancelled"
-                    revoked += 1
-
-            parent.status = "cancelled"
-            parent.completed_at = datetime.utcnow()
-            session.commit()
-        finally:
-            session.close()
-
-        return True

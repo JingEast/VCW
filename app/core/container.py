@@ -110,6 +110,72 @@ def _make_permission_manager(config: "Config"):
     return PermissionManager(config)
 
 
+def _make_llm_gateway(config: "Config"):
+    """创建 LLM Gateway 单例。
+
+    根据 config.json 中的 llm 配置注册 provider adapter，
+    并挂载 tracing、metrics、fallback 中间件。
+    """
+    from llm.gateway.llm_gateway import LLMGateway, ProviderRegistry, GatewayConfig
+    from llm.adapter import create_adapter
+    from llm.fallback.chain_strategy import ChainFallbackStrategy
+    from llm.metrics.token_accounting import TokenAccountingCollector
+    from llm.tracing.otel_tracing import OtelTracingMiddleware
+
+    llm_config = config.get("llm") or {}
+    registry = ProviderRegistry()
+
+    # 主 provider
+    provider = llm_config.get("provider", "openai")
+    api_key = llm_config.get("api_key", "")
+    base_url = llm_config.get("base_url", "")
+    model = llm_config.get("model", "gpt-4o")
+
+    if api_key:
+        adapter = create_adapter(
+            provider,
+            api_key=api_key,
+            base_url=base_url or None,
+            model=model,
+        )
+        registry.register(provider, adapter)
+
+    # endpoints（多模型路由配置）
+    endpoints = llm_config.get("endpoints", [])
+    for ep in endpoints:
+        ep_name = ep.get("name", provider)
+        ep_api_key = ep.get("api_key", api_key)
+        ep_base_url = ep.get("base_url", base_url)
+        ep_model = ep.get("model", model)
+        if ep_api_key:
+            adapter = create_adapter(
+                ep_name,
+                api_key=ep_api_key,
+                base_url=ep_base_url or None,
+                model=ep_model,
+            )
+            registry.register(ep_name, adapter)
+
+    gateway_config = GatewayConfig(
+        default_provider=provider,
+        fallback_enabled=len(endpoints) > 1,
+        fallback_providers=[ep.get("name") for ep in endpoints],
+        metrics_enabled=True,
+        tracing_enabled=True,
+    )
+
+    gateway = LLMGateway(config=gateway_config, registry=registry)
+    gateway.attach_metrics(TokenAccountingCollector())
+    gateway.attach_tracing(OtelTracingMiddleware())
+
+    if len(endpoints) > 1:
+        gateway.attach_fallback(
+            ChainFallbackStrategy(priority=[ep.get("name") for ep in endpoints])
+        )
+
+    return gateway
+
+
 # ---- Repository factories ----
 
 def _make_copy_repo():
@@ -166,14 +232,21 @@ def _make_editor_service(
 
 
 def _make_generation_service(
-    config, copy_repo, memory_repo, draft_repo, transaction_manager, permission_manager
+    config, copy_repo, memory_repo, draft_repo, transaction_manager, permission_manager, llm_gateway=None
 ) -> "GenerationService":
     """创建文案生成服务单例"""
     from services.generation_service import GenerationService
 
     return GenerationService(
-        config, copy_repo, memory_repo, draft_repo, transaction_manager, permission_manager
+        config, copy_repo, memory_repo, draft_repo, transaction_manager, permission_manager, llm_gateway=llm_gateway
     )
+
+
+def _make_async_task_service(permission_manager):
+    """创建异步任务服务单例"""
+    from services.async_task_service import AsyncTaskService
+
+    return AsyncTaskService(permission_manager=permission_manager)
 
 
 def _make_prompt_service(
@@ -231,10 +304,10 @@ def _make_history_service(
     )
 
 
-def _make_generation_handler(generation_service, history_service):
+def _make_generation_handler(generation_service, async_task_service, history_service):
     from domains.generation.application import GenerationHandler
 
-    return GenerationHandler(generation_service, history_service)
+    return GenerationHandler(generation_service, async_task_service, history_service)
 
 
 def _make_editor_handler(editor_service):
@@ -290,6 +363,9 @@ class AppContainer(containers.DeclarativeContainer):
     # ---- 爆款分析器（单例） ----
     viral_analyzer = providers.Singleton(_make_viral_analyzer)
 
+    # ---- LLM Gateway（单例） ----
+    llm_gateway = providers.Singleton(_make_llm_gateway, config=config)
+
     # ---- Repositories（单例） ----
     copy_repo = providers.Singleton(_make_copy_repo)
     memory_repo = providers.Singleton(_make_memory_repo, memory_bank=memory_bank)
@@ -308,6 +384,7 @@ class AppContainer(containers.DeclarativeContainer):
         draft_repo=draft_repo,
         transaction_manager=transaction_manager,
         permission_manager=permission_manager,
+        llm_gateway=llm_gateway,
     )
 
     # ---- 编辑器服务（单例） ----
@@ -349,10 +426,17 @@ class AppContainer(containers.DeclarativeContainer):
         permission_manager=permission_manager,
     )
 
+    # ---- 异步任务服务（单例） ----
+    async_task_service = providers.Singleton(
+        _make_async_task_service,
+        permission_manager=permission_manager,
+    )
+
     # ---- Application handlers ----
     generation_handler = providers.Singleton(
         _make_generation_handler,
         generation_service=generation_service,
+        async_task_service=async_task_service,
         history_service=history_service,
     )
     editor_handler = providers.Singleton(
