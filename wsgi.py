@@ -10,7 +10,7 @@ import sys
 # 确保项目根目录在 Python 路径中（兼容直接运行和导入）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app import create_app
+from app import create_app  # noqa: E402
 
 app = create_app()
 

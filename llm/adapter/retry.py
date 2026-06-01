@@ -53,7 +53,11 @@ def _before_sleep_with_trace(retry_state: Any) -> None:
                     "retry.attempt": attempt_number,
                     "retry.max_attempts": max_attempts,
                     "retry.exception": type(exception).__name__ if exception else "",
-                    "retry.wait_seconds": getattr(retry_state.next_action, "sleep", 0.0) if retry_state.next_action else 0.0,
+                    "retry.wait_seconds": (
+                        getattr(retry_state.next_action, "sleep", 0.0)
+                        if retry_state.next_action
+                        else 0.0
+                    ),
                 },
             )
     except ImportError:

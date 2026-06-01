@@ -48,7 +48,12 @@ class _NoopSpan:
     def set_attributes(self, attrs: Dict[str, Any]) -> None:
         pass
 
-    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None, timestamp: Optional[int] = None) -> None:
+    def add_event(
+        self,
+        name: str,
+        attributes: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[int] = None,
+    ) -> None:
         pass
 
     def set_status(self, status: Any, description: Optional[str] = None) -> None:
@@ -70,10 +75,22 @@ class _NoopSpan:
 class _NoopTracer:
     """兼容 opentelemetry Tracer 接口的 no-op 实现。"""
 
-    def start_span(self, name: str, context: Optional[Any] = None, kind: Optional[Any] = None, attributes: Optional[Dict[str, Any]] = None) -> _NoopSpan:
+    def start_span(
+        self,
+        name: str,
+        context: Optional[Any] = None,
+        kind: Optional[Any] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> _NoopSpan:
         return _NoopSpan()
 
-    def start_as_current_span(self, name: str, context: Optional[Any] = None, kind: Optional[Any] = None, attributes: Optional[Dict[str, Any]] = None) -> _NoopSpan:
+    def start_as_current_span(
+        self,
+        name: str,
+        context: Optional[Any] = None,
+        kind: Optional[Any] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> _NoopSpan:
         return _NoopSpan()
 
 
