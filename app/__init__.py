@@ -41,6 +41,7 @@ def create_app() -> Flask:
     _register_error_handlers(app)
     _register_trace_middleware(app)
     _register_metrics_middleware(app)
+    _register_profiler(app)
 
     # ============================================================
     # 页面 Blueprints（无 url_prefix，保持原有 URL 路径）
@@ -112,6 +113,27 @@ def create_app() -> Flask:
             200,
             {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"},
         )
+
+    # ============================================================
+    # Profiling 端点
+    # ============================================================
+    @app.route("/debug/profile")
+    def debug_profile():
+        if not app.debug:
+            return jsonify({"error": "profiling disabled"}), 403
+        profiler = getattr(app, "profiler", None)
+        if profiler is None:
+            return jsonify({"error": "profiler not initialized"}), 500
+        return jsonify(profiler.snapshot())
+
+    @app.route("/debug/profile/clear", methods=["POST"])
+    def debug_profile_clear():
+        if not app.debug:
+            return jsonify({"error": "profiling disabled"}), 403
+        profiler = getattr(app, "profiler", None)
+        if profiler is not None:
+            profiler.clear()
+        return jsonify({"ok": True})
 
     # ============================================================
     # 兼容处理：裸端点名与 request.endpoint 修补
@@ -205,6 +227,66 @@ def _register_trace_middleware(app: Flask) -> None:
         trace_id = _get_current_trace_id()
         response.headers["X-Trace-Id"] = trace_id
         return response
+
+
+def _register_profiler(app: Flask) -> None:
+    """注册性能分析器（仅在 debug 模式激活自动请求分析）。"""
+    from app.core.profiler import Profiler, set_global_profiler
+
+    profiler = Profiler()
+    app.profiler = profiler  # type: ignore[attr-defined]
+    set_global_profiler(profiler)
+
+    @app.before_request
+    def _profile_start() -> None:
+        if not app.debug:
+            return
+        from flask import g
+        g._profile_start = time.perf_counter()
+
+    @app.after_request
+    def _profile_record(response):
+        if not app.debug:
+            return response
+        from flask import g
+
+        # 排除 profiling 自身端点，避免循环记录
+        if request.endpoint in ("debug_profile", "debug_profile_clear"):
+            return response
+
+        start = getattr(g, "_profile_start", None)
+        if start is not None:
+            duration_ms = (time.perf_counter() - start) * 1000
+            _profiler = getattr(app, "profiler", None) or profiler
+            _profiler.record(
+                name=f"http:{request.method}:{request.endpoint or 'unknown'}",
+                duration_ms=duration_ms,
+                path=request.path,
+                status_code=response.status_code,
+            )
+            g._profile_recorded = True
+        return response
+
+    @app.teardown_request
+    def _profile_teardown(exc):
+        if not app.debug:
+            return
+        from flask import g
+        if getattr(g, "_profile_recorded", False):
+            return
+        # 排除 profiling 自身端点
+        if request.endpoint in ("debug_profile", "debug_profile_clear"):
+            return
+        start = getattr(g, "_profile_start", None)
+        if start is not None:
+            duration_ms = (time.perf_counter() - start) * 1000
+            _profiler = getattr(app, "profiler", None) or profiler
+            _profiler.record(
+                name=f"http:{request.method}:{request.endpoint or 'unknown'}",
+                duration_ms=duration_ms,
+                path=request.path,
+                status_code=500 if exc else 200,
+            )
 
 
 def _register_metrics_middleware(app: Flask) -> None:

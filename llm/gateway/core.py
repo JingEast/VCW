@@ -128,6 +128,7 @@ class LLMGateway:
             raise
         finally:
             latency_ms = (time.perf_counter() - t0) * 1000
+            self._profile_record("llm.chat", latency_ms, provider=provider_name, model=adapter.model)
 
             # 5. tracing post
             if self._tracing is not None and trace_ctx is not None:
@@ -328,6 +329,21 @@ class LLMGateway:
             cost=0.0,  # collector 内部根据 model+tokens 自动计算
             request_id=request_id,
         )
+
+    def _profile_record(
+        self,
+        name: str,
+        duration_ms: float,
+        **meta: Any,
+    ) -> None:
+        """记录性能分析数据到全局 Profiler（如果可用）。"""
+        try:
+            from app.core.profiler import get_global_profiler
+
+            profiler = get_global_profiler()
+            profiler.record(name, duration_ms, **meta)
+        except Exception:
+            pass
 
     def __repr__(self) -> str:
         return (

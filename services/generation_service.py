@@ -26,6 +26,7 @@ from domains.editor.domain.repository import IDraftRepository
 from vcw_copywriter.prompt_builder import build_full_prompts
 from vcw_copywriter.checker import check_and_report
 from vcw_copywriter.batch_generator import BatchGenerator
+from app.core.profiler import profile
 
 if TYPE_CHECKING:
     from llm.gateway.llm_gateway import LLMGateway
@@ -185,6 +186,7 @@ class GenerationService(BaseService):
     # 单次生成
     # ------------------------------------------------------------------
 
+    @profile(name="generation_service._generate_copy_internal")
     def _generate_copy_internal(
         self,
         req_data: Dict,
