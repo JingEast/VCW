@@ -100,8 +100,15 @@ def create_app() -> Flask:
         collector = getattr(app, "metrics", None)
         if collector is None:
             return "# no metrics collector\n", 200, {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"}
+        # Error correlation: 在 Prometheus 注释中声明 trace_id 关联方式
+        prom_output = collector.to_prometheus()
+        header = (
+            "# Error Correlation: each error log line contains "
+            "[error_code=<code> trace_id=<id>] for cross-reference\n"
+            "# Dead letter tasks include trace_id in GenerationJob.result\n"
+        )
         return (
-            collector.to_prometheus(),
+            header + prom_output,
             200,
             {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"},
         )
@@ -243,7 +250,7 @@ def _register_error_handlers(app: Flask) -> None:
     def bad_request(error):
         trace_id = _get_current_trace_id()
         app.logger.warning(
-            "BadRequest [%s] %s %s | %s",
+            "[error_code=BAD_REQUEST trace_id=%s] %s %s | %s",
             trace_id,
             request.method,
             request.url,
@@ -262,7 +269,7 @@ def _register_error_handlers(app: Flask) -> None:
     def not_found(error):
         trace_id = _get_current_trace_id()
         app.logger.warning(
-            "NotFound [%s] %s %s",
+            "[error_code=NOT_FOUND trace_id=%s] %s %s",
             trace_id,
             request.method,
             request.url,
@@ -280,7 +287,7 @@ def _register_error_handlers(app: Flask) -> None:
     def method_not_allowed(error):
         trace_id = _get_current_trace_id()
         app.logger.warning(
-            "MethodNotAllowed [%s] %s %s",
+            "[error_code=METHOD_NOT_ALLOWED trace_id=%s] %s %s",
             trace_id,
             request.method,
             request.url,
@@ -298,7 +305,7 @@ def _register_error_handlers(app: Flask) -> None:
     def internal_error(error):
         trace_id = _get_current_trace_id()
         app.logger.error(
-            "InternalError [%s] %s %s | %s\n%s",
+            "[error_code=INTERNAL_ERROR trace_id=%s] %s %s | %s\n%s",
             trace_id,
             request.method,
             request.url,
@@ -319,7 +326,7 @@ def _register_error_handlers(app: Flask) -> None:
     def unhandled_exception(error):
         trace_id = _get_current_trace_id()
         app.logger.error(
-            "UnhandledException [%s] endpoint=%s method=%s url=%s | %s\n%s",
+            "[error_code=UNHANDLED_EXCEPTION trace_id=%s] endpoint=%s method=%s url=%s | %s\n%s",
             trace_id,
             request.endpoint,
             request.method,

@@ -124,3 +124,29 @@ class TestCeleryTaskTraceId:
 
         result = echo_task.apply(args=["hello"]).result
         assert "Echo: hello" in result
+
+    def test_dead_letter_includes_trace_id(self, app):
+        """死信队列记录应包含 trace_id。"""
+        from vcw_celery_tasks.tasks import _store_dead_letter
+        from vcw_copywriter.db.session import get_session
+        from vcw_copywriter.db.models import GenerationJob
+
+        _store_dead_letter(
+            req_data={"topic": "test"},
+            error="test error",
+            celery_task_id="task-123",
+            trace_id="deadletter-tx-99",
+        )
+
+        session = get_session()
+        try:
+            job = (
+                session.query(GenerationJob)
+                .filter(GenerationJob.celery_task_id == "task-123")
+                .first()
+            )
+            assert job is not None
+            assert job.result is not None
+            assert job.result.get("trace_id") == "deadletter-tx-99"
+        finally:
+            session.close()

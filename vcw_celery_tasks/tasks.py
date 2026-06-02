@@ -72,7 +72,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
                     batch_id, task_id, "failed",
                     {"error": str(exc), "angle": angle}
                 )
-            _store_dead_letter(req_data, str(exc), task_id)
+            _store_dead_letter(req_data, str(exc), task_id, trace_id)
             raise
     except Exception as exc:
         try:
@@ -85,7 +85,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
                     batch_id, task_id, "failed",
                     {"error": str(exc), "angle": angle}
                 )
-            _store_dead_letter(req_data, str(exc), task_id)
+            _store_dead_letter(req_data, str(exc), task_id, trace_id)
             raise
 
 
@@ -331,8 +331,8 @@ def _update_batch_progress(batch_id: str, subtask_id: str, status: str, data: di
         session.close()
 
 
-def _store_dead_letter(req_data: dict, error: str, celery_task_id: str) -> None:
-    """将失败任务写入死信队列（GenerationJob）。"""
+def _store_dead_letter(req_data: dict, error: str, celery_task_id: str, trace_id: str = "-") -> None:
+    """将失败任务写入死信队列（GenerationJob），附带 trace_id 用于错误关联。"""
     from vcw_copywriter.db.session import get_session
     from vcw_copywriter.db.models import GenerationJob
 
@@ -345,6 +345,7 @@ def _store_dead_letter(req_data: dict, error: str, celery_task_id: str) -> None:
             error=error[:500],
             dead_letter=True,
             celery_task_id=celery_task_id,
+            result={"trace_id": trace_id, "req_data": req_data},
             created_at=datetime.utcnow(),
         )
         session.add(job)
