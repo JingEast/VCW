@@ -46,21 +46,21 @@ def migrate_trends(json_path: str = "data/trend_db.json"):
     with open(json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    count = 0
+    trends = []
     for t_dict in data.get("trends", []):
         trend = Trend.from_dict(t_dict)
         trend.is_archived = False
-        repo.session.add(trend)
-        count += 1
+        trends.append(trend)
     for t_dict in data.get("archived", []):
         trend = Trend.from_dict(t_dict)
         trend.is_archived = True
-        repo.session.add(trend)
-        count += 1
+        trends.append(trend)
 
-    repo.session.commit()
+    if trends:
+        repo.session.bulk_save_objects(trends)
+        repo.session.commit()
     session.close()
-    print(f"[migrate] trends 迁移完成: {count} 条（活跃 {len(data.get('trends', []))} + 归档 {len(data.get('archived', []))}）")
+    print(f"[migrate] trends 迁移完成: {len(trends)} 条（活跃 {len(data.get('trends', []))} + 归档 {len(data.get('archived', []))}）")
 
 
 def migrate_memory(json_path: str = "data/memory_db.json"):
@@ -88,15 +88,12 @@ def migrate_memory(json_path: str = "data/memory_db.json"):
     with open(json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    count = 0
-    for e_dict in data.get("entries", []):
-        entry = MemoryEntry.from_dict(e_dict)
-        repo.session.add(entry)
-        count += 1
-
-    repo.session.commit()
+    entries = [MemoryEntry.from_dict(e_dict) for e_dict in data.get("entries", [])]
+    if entries:
+        repo.session.bulk_save_objects(entries)
+        repo.session.commit()
     session.close()
-    print(f"[migrate] memory_entries 迁移完成: {count} 条")
+    print(f"[migrate] memory_entries 迁移完成: {len(entries)} 条")
 
 
 def migrate_jobs(sqlite_path: str = "data/task_queue.db"):
@@ -126,15 +123,12 @@ def migrate_jobs(sqlite_path: str = "data/task_queue.db"):
     ).fetchall()
     conn.close()
 
-    count = 0
-    for row in rows:
-        job = GenerationJob.from_legacy_sqlite_row(row)
-        session.add(job)
-        count += 1
-
-    session.commit()
+    jobs = [GenerationJob.from_legacy_sqlite_row(row) for row in rows]
+    if jobs:
+        session.bulk_save_objects(jobs)
+        session.commit()
     session.close()
-    print(f"[migrate] generation_jobs 迁移完成: {count} 条")
+    print(f"[migrate] generation_jobs 迁移完成: {len(jobs)} 条")
 
 
 def main():

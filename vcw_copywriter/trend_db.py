@@ -77,16 +77,19 @@ class TrendDatabase:
     def _sync_json_to_db(self, data: Dict):
         """一次性将 JSON 数据全量导入数据库（用于首次迁移）"""
         from .db.models import Trend
+        trends = []
         for t_dict in data.get("trends", []):
             trend = Trend.from_dict(t_dict)
             trend.is_archived = False  # type: ignore[assignment]
-            self._repo.session.add(trend)
+            trends.append(trend)
         for t_dict in data.get("archived", []):
             trend = Trend.from_dict(t_dict)
             trend.is_archived = True  # type: ignore[assignment]
-            self._repo.session.add(trend)
-        self._repo.session.commit()
-        print(f"[TrendDB] JSON → 数据库迁移完成: {len(data.get('trends', []))} 条活跃 + {len(data.get('archived', []))} 条归档")
+            trends.append(trend)
+        if trends:
+            self._repo.session.bulk_save_objects(trends)
+            self._repo.session.commit()
+        print(f"[TrendDB] JSON → 数据库迁移完成: {len(trends)} 条活跃 + {len(data.get('archived', []))} 条归档")
 
     def _sync_to_db(self):
         """增量同步内存数据到数据库"""
