@@ -48,6 +48,8 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
     logger = logging.getLogger(__name__)
     logger.info("[trace_id=%s] generate_copy_task start | task_id=%s batch_id=%s angle=%s", trace_id, task_id, batch_id, angle)
 
+    _record_celery_metric("generate_copy_task", "started")
+
     def on_progress(progress: int, message: str):
         self.update_state(state="PROGRESS", meta={"progress": progress, "message": message})
 
@@ -57,12 +59,14 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
             result["angle"] = angle
             _update_batch_progress(batch_id, task_id, "success", result)
         logger.info("[trace_id=%s] generate_copy_task success | task_id=%s", trace_id, task_id)
+        _record_celery_metric("generate_copy_task", "success")
         return result
     except GenerationError as exc:
         try:
             self.retry(exc=exc)
         except Exception:
             logger.error("[trace_id=%s] generate_copy_task failed | task_id=%s error=%s", trace_id, task_id, exc)
+            _record_celery_metric("generate_copy_task", "failed")
             if batch_id:
                 _update_batch_progress(
                     batch_id, task_id, "failed",
@@ -75,6 +79,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
             self.retry(exc=exc)
         except Exception:
             logger.error("[trace_id=%s] generate_copy_task failed | task_id=%s error=%s", trace_id, task_id, exc)
+            _record_celery_metric("generate_copy_task", "failed")
             if batch_id:
                 _update_batch_progress(
                     batch_id, task_id, "failed",
@@ -97,6 +102,7 @@ def generate_batch_task(self, req_data: dict, angles: list, batch_id: str) -> di
     import logging
     logger = logging.getLogger(__name__)
     logger.info("[trace_id=%s] generate_batch_task start | batch_id=%s angles=%d", trace_id, batch_id, len(angles))
+    _record_celery_metric("generate_batch_task", "started")
 
     # 更新父批次为 running
     _update_job_status(batch_id, status="running", started_at=datetime.utcnow())
@@ -178,6 +184,18 @@ def _get_task_trace_id(task) -> str:
     if trace_id is not None:
         return str(trace_id)
     return uuid.uuid4().hex[:12]
+
+
+def _record_celery_metric(task_name: str, status: str) -> None:
+    """记录 Celery 任务指标到全局收集器。"""
+    from app.core.metrics import get_global_collector
+
+    try:
+        collector = get_global_collector()
+        collector.record_celery_task(task_name, status)
+    except Exception:
+        # 指标记录不应影响任务执行
+        pass
 
 
 def _make_subtask_id(batch_id: str, angle: str) -> str:

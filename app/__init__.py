@@ -1,4 +1,5 @@
 import os
+import time
 import traceback
 import uuid
 from flask import Flask, has_request_context, jsonify, request
@@ -39,6 +40,7 @@ def create_app() -> Flask:
     setup_logging(app)
     _register_error_handlers(app)
     _register_trace_middleware(app)
+    _register_metrics_middleware(app)
 
     # ============================================================
     # 页面 Blueprints（无 url_prefix，保持原有 URL 路径）
@@ -184,6 +186,42 @@ def _register_trace_middleware(app: Flask) -> None:
         return response
 
 
+def _register_metrics_middleware(app: Flask) -> None:
+    """注册指标中间件：记录 HTTP 请求计数与延迟。"""
+    from app.core.metrics import MetricsCollector, set_global_collector
+
+    collector = MetricsCollector()
+    app.metrics = collector  # type: ignore[attr-defined]
+    set_global_collector(collector)
+
+    @app.before_request
+    def _metrics_start_timer() -> None:
+        from flask import g
+        g._metrics_start = time.perf_counter()
+
+    @app.after_request
+    def _metrics_record(response):
+        from flask import g
+
+        start = getattr(g, "_metrics_start", None)
+        latency_ms = (time.perf_counter() - start) * 1000 if start else 0.0
+        path = request.path or "unknown"
+        collector.record_http_request(
+            method=request.method or "UNKNOWN",
+            path=path,
+            status_code=response.status_code,
+            latency_ms=latency_ms,
+        )
+        return response
+
+
+def _record_error_metric(app: Flask, code: str) -> None:
+    """将错误码记录到应用指标收集器（如果存在）。"""
+    collector = getattr(app, "metrics", None)
+    if collector is not None:
+        collector.record_error(code)
+
+
 def _register_error_handlers(app: Flask) -> None:
     """注册全局错误处理器，所有异常返回统一 JSON 格式并附带 trace_id"""
 
@@ -197,6 +235,7 @@ def _register_error_handlers(app: Flask) -> None:
             request.url,
             getattr(error, "description", str(error)),
         )
+        _record_error_metric(app, "BAD_REQUEST")
         return jsonify({
             "success": False,
             "data": None,
@@ -214,6 +253,7 @@ def _register_error_handlers(app: Flask) -> None:
             request.method,
             request.url,
         )
+        _record_error_metric(app, "NOT_FOUND")
         return jsonify({
             "success": False,
             "data": None,
@@ -231,6 +271,7 @@ def _register_error_handlers(app: Flask) -> None:
             request.method,
             request.url,
         )
+        _record_error_metric(app, "METHOD_NOT_ALLOWED")
         return jsonify({
             "success": False,
             "data": None,
@@ -251,6 +292,7 @@ def _register_error_handlers(app: Flask) -> None:
             traceback.format_exc(),
             exc_info=False,
         )
+        _record_error_metric(app, "INTERNAL_ERROR")
         return jsonify({
             "success": False,
             "data": None,
@@ -272,6 +314,7 @@ def _register_error_handlers(app: Flask) -> None:
             traceback.format_exc(),
             exc_info=False,
         )
+        _record_error_metric(app, "UNHANDLED_EXCEPTION")
         return jsonify({
             "success": False,
             "data": None,
