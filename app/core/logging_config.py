@@ -5,11 +5,14 @@
 禁止直接使用 print，所有输出均通过 logging 模块。
 """
 
+from __future__ import annotations
+
+import json
 import logging
 import logging.handlers
 import os
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 from flask import Flask, has_request_context
 
@@ -36,6 +39,45 @@ class TraceIdFilter(logging.Filter):
         return True
 
 
+class JsonFormatter(logging.Formatter):
+    """
+    结构化 JSON 日志格式器。
+
+    输出字段：
+      - timestamp: ISO8601 格式时间
+      - level: 日志级别
+      - logger: logger 名称
+      - message: 日志消息
+      - trace_id: 请求追踪 ID
+      - pathname: 源文件路径
+      - lineno: 行号
+      - funcName: 函数名
+      - exception: 异常信息（如有）
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_data: dict[str, Any] = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "trace_id": getattr(record, "trace_id", "-"),
+            "pathname": record.pathname,
+            "lineno": record.lineno,
+            "funcName": record.funcName,
+        }
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_data, ensure_ascii=False)
+
+
+def _build_formatter(app_debug: bool) -> logging.Formatter:
+    """根据运行模式选择日志格式器。"""
+    if app_debug:
+        return logging.Formatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
+    return JsonFormatter(datefmt=DEFAULT_DATEFMT)
+
+
 def setup_logging(
     app: Flask,
     log_dir: Optional[str] = None,
@@ -57,7 +99,7 @@ def setup_logging(
     os.makedirs(log_dir, exist_ok=True)
 
     log_level = logging.DEBUG if app.debug else logging.INFO
-    formatter = logging.Formatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATEFMT)
+    formatter = _build_formatter(app.debug)
     trace_filter = TraceIdFilter()
 
     # 清除根 logger 现有 handlers（避免重复注册）
