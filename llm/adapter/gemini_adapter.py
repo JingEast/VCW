@@ -103,8 +103,10 @@ class GeminiAdapter(BaseLLMAdapter):
         url = f"/models/{model}:generateContent?key={self.api_key}"
 
         t0 = time.perf_counter()
+        trace_id = kwargs.pop("trace_id", None)
+        extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
         try:
-            resp = self._client.post(url, json=payload)
+            resp = self._client.post(url, json=payload, headers=extra_headers)
             resp.raise_for_status()
         except httpx.TimeoutException as exc:
             raise LLMTimeoutError(
@@ -158,8 +160,10 @@ class GeminiAdapter(BaseLLMAdapter):
 
         url = f"/models/{model}:batchEmbedContents?key={self.api_key}"
 
+        trace_id = kwargs.pop("trace_id", None)
+        extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
         try:
-            resp = self._client.post(url, json=payload)
+            resp = self._client.post(url, json=payload, headers=extra_headers)
             resp.raise_for_status()
         except httpx.TimeoutException as exc:
             raise LLMTimeoutError(
@@ -180,7 +184,9 @@ class GeminiAdapter(BaseLLMAdapter):
         try:
             model = self.model
             url = f"/models/{model}?key={self.api_key}"
-            resp = self._client.get(url, timeout=5.0)
+            trace_id = getattr(self, "_last_trace_id", None)
+            extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
+            resp = self._client.get(url, timeout=5.0, headers=extra_headers)
             if resp.status_code == 200:
                 return HealthStatus.HEALTHY
             if resp.status_code in (502, 503, 504):

@@ -98,8 +98,10 @@ class AnthropicAdapter(BaseLLMAdapter):
             payload["stop_sequences"] = kwargs["stop"] if isinstance(kwargs["stop"], list) else [kwargs["stop"]]
 
         t0 = time.perf_counter()
+        trace_id = kwargs.pop("trace_id", None)
+        extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
         try:
-            resp = self._client.post("/messages", json=payload)
+            resp = self._client.post("/messages", json=payload, headers=extra_headers)
             resp.raise_for_status()
         except httpx.TimeoutException as exc:
             raise LLMTimeoutError(
@@ -156,6 +158,8 @@ class AnthropicAdapter(BaseLLMAdapter):
     def health_check(self) -> HealthStatus:
         try:
             # Anthropic 没有公开的 models list，用轻量 messages 探测
+            trace_id = getattr(self, "_last_trace_id", None)
+            extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
             resp = self._client.post(
                 "/messages",
                 json={
@@ -164,6 +168,7 @@ class AnthropicAdapter(BaseLLMAdapter):
                     "max_tokens": 1,
                 },
                 timeout=5.0,
+                headers=extra_headers,
             )
             if resp.status_code == 200:
                 return HealthStatus.HEALTHY

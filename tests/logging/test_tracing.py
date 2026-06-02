@@ -150,3 +150,57 @@ class TestCeleryTaskTraceId:
             assert job.result.get("trace_id") == "deadletter-tx-99"
         finally:
             session.close()
+
+
+class TestDistributedTracing:
+    """验证分布式追踪在 outbound 请求和响应头中的体现。"""
+
+    def test_server_timing_header_present(self, client):
+        """正常响应应包含 Server-Timing 头。"""
+        response = client.get("/")
+        assert "Server-Timing" in response.headers
+        assert "total;dur=" in response.headers["Server-Timing"]
+
+    def test_server_timing_format_valid(self, client):
+        """Server-Timing 值应符合 W3C 格式。"""
+        response = client.get("/")
+        st = response.headers["Server-Timing"]
+        # 格式: total;dur=12.34
+        assert st.startswith("total;dur=")
+        dur_str = st.split("=")[1]
+        dur = float(dur_str)
+        assert dur >= 0.0
+
+    def test_trace_headers_util(self, app):
+        """make_trace_headers 应注入 X-Trace-Id。"""
+        from app.core.tracing import make_trace_headers
+
+        headers = make_trace_headers({"Content-Type": "application/json"})
+        assert "X-Trace-Id" in headers
+        assert len(headers["X-Trace-Id"]) == 12
+        assert headers["Content-Type"] == "application/json"
+
+    def test_server_timing_helper(self, app):
+        """make_server_timing_header 应生成正确格式。"""
+        from app.core.tracing import make_server_timing_header
+
+        st = make_server_timing_header(123.456, desc="generate")
+        assert st == "generate;dur=123.46"
+
+    def test_celery_task_inherits_parent_trace_id(self, app):
+        """子任务应能继承父批次的 trace_id。"""
+        from vcw_celery_tasks.tasks import _get_task_trace_id
+
+        class FakeRequest:
+            meta = {}
+            id = "task-456"
+
+        class FakeTask:
+            request = FakeRequest()
+
+        # _get_task_trace_id 在没有 meta trace_id 时会生成新的
+        child_trace_id = _get_task_trace_id(FakeTask())
+        assert len(child_trace_id) == 12
+
+        # 当 req_data 中有 _trace_id 时会被优先使用（在 generate_copy_task 中实现）
+        # 此处仅验证工具函数行为

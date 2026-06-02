@@ -233,6 +233,8 @@ def _register_metrics_middleware(app: Flask) -> None:
             status_code=response.status_code,
             latency_ms=latency_ms,
         )
+        # Server-Timing: W3C 性能计时头
+        response.headers["Server-Timing"] = f"total;dur={latency_ms:.2f}"
         return response
 
 

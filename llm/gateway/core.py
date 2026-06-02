@@ -122,7 +122,7 @@ class LLMGateway:
         response: Optional[LLMResponse] = None
         try:
             with GatewayTracer.model_call_span(provider_name, adapter.model):
-                response = adapter.chat(messages, **kwargs)
+                response = adapter.chat(messages, trace_id=request_id, **kwargs)
         except Exception as exc:
             error = exc
             raise
@@ -203,7 +203,7 @@ class LLMGateway:
         error: Optional[Exception] = None
         last_response: Optional[LLMResponse] = None
         try:
-            for chunk in adapter.generate_stream(messages, **kwargs):
+            for chunk in adapter.generate_stream(messages, trace_id=request_id, **kwargs):
                 last_response = chunk
                 yield chunk
         except Exception as exc:
@@ -247,7 +247,7 @@ class LLMGateway:
         error: Optional[Exception] = None
         result: Optional[list[list[float]]] = None
         try:
-            result = adapter.embed(texts, **kwargs)
+            result = adapter.embed(texts, trace_id=request_id, **kwargs)
             return result
         except Exception as exc:
             error = exc

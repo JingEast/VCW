@@ -38,7 +38,8 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
     batch_id = req_data.get("_batch_id")
     angle = req_data.get("angle", "")
     task_id = self.request.id
-    trace_id = _get_task_trace_id(self)
+    # 优先继承父批次传递的 trace_id，否则从 task request 生成
+    trace_id = req_data.get("_trace_id") or _get_task_trace_id(self)
 
     # 更新子任务状态为 running（仅在 DB 中有记录时）
     if batch_id:
@@ -112,7 +113,8 @@ def generate_batch_task(self, req_data: dict, angles: list, batch_id: str) -> di
         # 使用确定性 ID（batch_id + angle hash）保证幂等性：
         # 同一批次的同一角度始终生成相同子任务 ID，避免重复创建。
         sub_id = _make_subtask_id(batch_id, angle)
-        sub_req = {**req_data, "angle": angle, "_batch_id": batch_id}
+        # 将父批次 trace_id 传递给子任务，实现分布式追踪上下文传递
+        sub_req = {**req_data, "angle": angle, "_batch_id": batch_id, "_trace_id": trace_id}
 
         # 预创建子任务 DB 记录（若已存在则跳过，保证幂等）
         _create_job_if_not_exists(

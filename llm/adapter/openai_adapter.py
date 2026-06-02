@@ -87,8 +87,10 @@ class OpenAIAdapter(BaseLLMAdapter):
             payload["stop"] = kwargs["stop"]
 
         t0 = time.perf_counter()
+        trace_id = kwargs.pop("trace_id", None)
+        extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
         try:
-            resp = self._client.post("/chat/completions", json=payload)
+            resp = self._client.post("/chat/completions", json=payload, headers=extra_headers)
             resp.raise_for_status()
         except httpx.TimeoutException as exc:
             raise LLMTimeoutError(
@@ -138,8 +140,10 @@ class OpenAIAdapter(BaseLLMAdapter):
         if "dimensions" in kwargs:
             payload["dimensions"] = kwargs["dimensions"]
 
+        trace_id = kwargs.pop("trace_id", None)
+        extra_headers = {"X-Trace-Id": trace_id} if trace_id else None
         try:
-            resp = self._client.post("/embeddings", json=payload)
+            resp = self._client.post("/embeddings", json=payload, headers=extra_headers)
             resp.raise_for_status()
         except httpx.TimeoutException as exc:
             raise LLMTimeoutError(
