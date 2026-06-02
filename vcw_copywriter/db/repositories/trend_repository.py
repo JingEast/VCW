@@ -11,6 +11,7 @@ from sqlalchemy import func
 
 from .base import BaseRepository
 from ..models import Trend
+from app.core.cache import cached
 
 
 class TrendRepository(BaseRepository):
@@ -18,9 +19,19 @@ class TrendRepository(BaseRepository):
 
     ARCHIVE_DAYS = 90
     EXPIRED_DAYS = 365
+    _CACHE_TTL = 300  # 5 分钟
 
     def __init__(self, session: Session):
         super().__init__(session, Trend)
+
+    def _clear_read_caches(self) -> None:
+        """写操作后清除读缓存。"""
+        for method_name in ("get_all", "get_recommended", "get_fresh_hotspots"):
+            method = getattr(self, method_name, None)
+            if method is not None:
+                clear_fn = getattr(method, "cache_clear", None)
+                if clear_fn is not None:
+                    clear_fn()
 
     # ---------- 内部工具 ----------
 
@@ -81,6 +92,7 @@ class TrendRepository(BaseRepository):
             relevance_score: int = 50, click_count: int = 0,
             published_at: str = "", is_manual: bool = False,
             **extra_fields) -> Trend:
+        self._clear_read_caches()
         import uuid
         trend = Trend(
             id=str(uuid.uuid4())[:8],
@@ -105,6 +117,7 @@ class TrendRepository(BaseRepository):
 
     def add_manual(self, title: str, summary: str = "", url: str = "",
                    published_at: str = "", relevance_score: int = 80) -> Trend:
+        self._clear_read_caches()
         return self.add(
             title=title, summary=summary, source="手动录入", url=url,
             relevance_score=relevance_score, published_at=published_at,
@@ -218,11 +231,13 @@ class TrendRepository(BaseRepository):
                 added += 1
 
         self.session.commit()
+        self._clear_read_caches()
         print(f"[TrendRepository] 导入完成：新增 {added} 条，更新 {updated} 条，跳过 {skipped} 条")
         return added, skipped
 
     # ---------- 查询 ----------
 
+    @cached(ttl_seconds=_CACHE_TTL, maxsize=64)
     def get_all(self, limit: int = 100, offset: int = 0,  # type: ignore[override]
                 time_filter: str = "all", sort_by: str = "composite",
                 category_filter: str = "all") -> Tuple[List[Trend], int]:
@@ -287,6 +302,7 @@ class TrendRepository(BaseRepository):
         trends.sort(key=_sort_key, reverse=True)
         return trends[offset:offset + limit], total
 
+    @cached(ttl_seconds=_CACHE_TTL, maxsize=16)
     def get_recommended(self, limit: int = 10) -> List[Trend]:
         # 取最近 90 天的热点作为候选集（避免全表扫描）
         cutoff = datetime.now() - timedelta(days=self.ARCHIVE_DAYS)
@@ -305,6 +321,7 @@ class TrendRepository(BaseRepository):
         trends.sort(key=lambda x: x.composite_score or 0, reverse=True)
         return trends[:limit]
 
+    @cached(ttl_seconds=_CACHE_TTL, maxsize=16)
     def get_fresh_hotspots(self, limit: int = 5) -> List[Trend]:
         # timeliness >= 80 意味着 published_at 在一周内
         cutoff = datetime.now() - timedelta(days=7)
@@ -333,6 +350,7 @@ class TrendRepository(BaseRepository):
             trend.click_count = (trend.click_count or 0) + 1  # type: ignore[assignment]
             trend.updated_at = datetime.now()  # type: ignore[assignment]
             self.session.commit()
+            self._clear_read_caches()
             return True
         return False
 
@@ -341,10 +359,12 @@ class TrendRepository(BaseRepository):
         if trend:
             self.session.delete(trend)
             self.session.commit()
+            self._clear_read_caches()
             return True
         return False
 
     def delete_expired(self) -> int:
+        self._clear_read_caches()
         cutoff = datetime.now() - timedelta(days=self.EXPIRED_DAYS)
         expired = (
             self.session.query(Trend)
@@ -360,6 +380,7 @@ class TrendRepository(BaseRepository):
         return len(expired)
 
     def delete_stale(self) -> int:
+        self._clear_read_caches()
         cutoff = datetime.now() - timedelta(days=self.ARCHIVE_DAYS)
         stale = (
             self.session.query(Trend)
