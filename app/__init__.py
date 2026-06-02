@@ -152,6 +152,12 @@ def create_app() -> Flask:
         return jsonify({"ok": True})
 
     # ============================================================
+    # HTTP 传输层优化（压缩 + 缓存头）
+    # ============================================================
+    _register_compression(app)
+    _register_cache_headers(app)
+
+    # ============================================================
     # 兼容处理：裸端点名与 request.endpoint 修补
     # 确保模板中 url_for('index')、request.endpoint == 'index' 等继续有效
     # ============================================================
@@ -447,3 +453,39 @@ def _register_error_handlers(app: Flask) -> None:
             "trace_id": trace_id,
             "meta": {},
         }), 500
+
+
+def _register_compression(app: Flask) -> None:
+    """注册 gzip 压缩（JSON/HTML/文本响应）。"""
+    try:
+        from flask_compress import Compress
+
+        Compress(app)
+    except ImportError:
+        app.logger.warning("flask-compress not installed, gzip compression disabled")
+
+
+def _register_cache_headers(app: Flask) -> None:
+    """为静态资源和 API 响应添加浏览器缓存头。"""
+
+    @app.after_request
+    def _add_cache_headers(response):
+        path = request.path
+
+        # 静态资源：1 天缓存（CSS/JS/图片/字体）
+        if path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=86400"
+            return response
+
+        # API 读取端点：5 分钟缓存（GET /api/v1/trends, /api/v1/prompts 等）
+        if path.startswith("/api/v1/") and request.method == "GET":
+            response.headers["Cache-Control"] = "public, max-age=300"
+            return response
+
+        # HTML 页面：不缓存（动态内容）
+        if response.content_type and "text/html" in response.content_type:
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            return response
+
+        return response
