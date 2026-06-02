@@ -30,6 +30,7 @@ class MetricsSnapshot:
     llm_latency_ms: dict[str, dict[str, float]] = field(default_factory=dict)
     celery_tasks: dict[str, int] = field(default_factory=dict)
     errors: dict[str, int] = field(default_factory=dict)
+    slow_queries: dict[str, int] = field(default_factory=dict)
     collected_at: Optional[str] = None
 
 
@@ -42,6 +43,7 @@ class MetricsCollector:
     _MAX_LLM_KEYS = 100
     _MAX_CELERY_KEYS = 100
     _MAX_ERROR_CODES = 50
+    _MAX_SLOW_QUERY_NAMES = 100
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -59,6 +61,9 @@ class MetricsCollector:
 
         # 错误指标
         self._errors: Counter = Counter()
+
+        # 慢查询指标
+        self._slow_queries: Counter = Counter()
 
     # ------------------------------------------------------------------
     # HTTP 指标
@@ -138,6 +143,18 @@ class MetricsCollector:
                 self._errors = Counter(dict(items))
 
     # ------------------------------------------------------------------
+    # 慢查询指标
+    # ------------------------------------------------------------------
+
+    def record_slow_query(self, name: str) -> None:
+        """记录一次慢查询（按名称聚合）。"""
+        with self._lock:
+            self._slow_queries[name] += 1
+            if len(self._slow_queries) > self._MAX_SLOW_QUERY_NAMES:
+                items = list(self._slow_queries.items())[-self._MAX_SLOW_QUERY_NAMES:]
+                self._slow_queries = Counter(dict(items))
+
+    # ------------------------------------------------------------------
     # 快照导出
     # ------------------------------------------------------------------
 
@@ -167,6 +184,7 @@ class MetricsCollector:
                 },
                 celery_tasks=dict(self._celery_tasks),
                 errors=dict(self._errors),
+                slow_queries=dict(self._slow_queries),
                 collected_at=datetime.now(timezone.utc).isoformat(),
             )
 
@@ -263,6 +281,15 @@ class MetricsCollector:
             for code, count in self._errors.items():
                 lines.append(
                     f'vcw_errors_total{{code="{code}"}} {count}'
+                )
+
+            # ---- Slow Queries Counter ----
+            lines.append("# HELP vcw_slow_queries_total Total slow queries")
+            lines.append("# TYPE vcw_slow_queries_total counter")
+            for name, count in self._slow_queries.items():
+                safe_name = self._escape_label(name)
+                lines.append(
+                    f'vcw_slow_queries_total{{name="{safe_name}"}} {count}'
                 )
 
         return "\n".join(lines) + "\n"

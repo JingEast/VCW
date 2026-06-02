@@ -14,6 +14,8 @@ redis>=5.0.0
 pgvector>=0.4.0
 flask-compress>=1.14.0
 flask-caching>=2.3.0
+flask-cors>=4.0.0
+pydantic-settings>=2.0.0
 
 # Optional: OpenTelemetry Tracing (Jaeger/OTLP/Console)
 # opentelemetry-api>=1.24.0

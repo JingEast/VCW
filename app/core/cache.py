@@ -6,22 +6,32 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
+logger = logging.getLogger(__name__)
 F = TypeVar("F", bound=Callable)
 
 
 class LocalTTLCache:
     """线程安全的内存 TTL 缓存。"""
 
-    def __init__(self, ttl: float, maxsize: int = 128) -> None:
+    _MEMORY_ALERT_THRESHOLD_KB = 256.0
+
+    def __init__(
+        self,
+        ttl: float,
+        maxsize: int = 128,
+        memory_alert_threshold_kb: float = _MEMORY_ALERT_THRESHOLD_KB,
+    ) -> None:
         self._ttl = ttl
         self._maxsize = maxsize
+        self._memory_alert_threshold_kb = memory_alert_threshold_kb
         self._store: dict[Any, tuple[Any, float]] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def get(self, key: Any) -> Any:
         with self._lock:
@@ -38,10 +48,39 @@ class LocalTTLCache:
             if len(self._store) >= self._maxsize:
                 self._evict()
             self._store[key] = (value, time.time() + self._ttl)
+            # 内存接近上限时触发告警日志
+            usage_ratio = len(self._store) / self._maxsize
+            if usage_ratio >= 0.9:
+                mem_kb = self.memory_estimate_kb()
+                logger.warning(
+                    "[CACHE_MEMORY] LocalTTLCache near capacity: %d/%d entries (est %.2f KB)",
+                    len(self._store),
+                    self._maxsize,
+                    mem_kb,
+                )
+            elif usage_ratio >= 0.75:
+                logger.info(
+                    "[CACHE_MEMORY] LocalTTLCache usage: %d/%d entries",
+                    len(self._store),
+                    self._maxsize,
+                )
 
     def clear(self) -> None:
         with self._lock:
             self._store.clear()
+
+    def memory_estimate_kb(self) -> float:
+        """估算当前内存占用（KB，近似值）。"""
+        with self._lock:
+            total = len(self._store)
+            if total == 0:
+                return 0.0
+            # 取样本估算单条平均大小
+            sample_key, (sample_value, _) = next(iter(self._store.items()))
+            key_size = len(str(sample_key).encode("utf-8"))
+            val_size = len(str(sample_value).encode("utf-8"))
+            entry_size = key_size + val_size + 64  # tuple/dict overhead
+            return round(total * entry_size / 1024, 2)
 
     def _evict(self) -> None:
         now = time.time()

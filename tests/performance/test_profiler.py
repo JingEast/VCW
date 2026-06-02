@@ -152,3 +152,81 @@ class TestProfilerMiddleware:
         response = client.post("/debug/profile/clear")
         assert response.status_code == 200
         assert app.profiler.snapshot()["count"] == 0
+
+
+class TestSlowQueryDetection:
+    """验证慢查询检测与报警。"""
+
+    def test_slow_queries_returns_over_threshold(self):
+        """slow_queries 应仅返回超过阈值的记录。"""
+        from app.core.profiler import Profiler
+
+        profiler = Profiler(slow_threshold_ms=50.0)
+        profiler.record("fast", 10.0)
+        profiler.record("slow", 100.0)
+        profiler.record("borderline", 50.0)
+
+        slow = profiler.slow_queries()
+        assert len(slow) == 1
+        assert slow[0].name == "slow"
+
+    def test_slow_queries_custom_threshold(self):
+        """slow_queries 支持临时覆盖阈值。"""
+        from app.core.profiler import Profiler
+
+        profiler = Profiler(slow_threshold_ms=100.0)
+        profiler.record("a", 80.0)
+        profiler.record("b", 150.0)
+
+        assert len(profiler.slow_queries()) == 1
+        assert len(profiler.slow_queries(threshold_ms=50.0)) == 2
+        assert len(profiler.slow_queries(threshold_ms=200.0)) == 0
+
+    def test_snapshot_contains_slow_stats(self):
+        """snapshot 应包含慢查询统计字段。"""
+        from app.core.profiler import Profiler
+
+        profiler = Profiler(slow_threshold_ms=30.0)
+        profiler.record("fast", 10.0)
+        profiler.record("slow", 100.0)
+
+        snap = profiler.snapshot()
+        assert "slow_threshold_ms" in snap
+        assert snap["slow_threshold_ms"] == 30.0
+        assert "slow_count" in snap
+        assert snap["slow_count"] == 1
+        assert "slow_queries" in snap
+        assert len(snap["slow_queries"]) == 1
+
+    def test_debug_profile_endpoint_supports_threshold_param(self, app, client):
+        """/debug/profile 支持 threshold_ms 查询参数。"""
+        app.debug = True
+        # 手动注入一条慢记录
+        app.profiler.record("slow_endpoint", 2000.0, path="/test")
+        app.profiler.record("fast_endpoint", 5.0, path="/test")
+
+        response = client.get("/debug/profile?threshold_ms=100")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["slow_threshold_ms"] == 100.0
+        assert data["slow_count"] == 1
+        assert data["slow_queries"][0]["name"] == "slow_endpoint"
+
+    def test_decorator_logs_slow_call(self, app):
+        """@profile 装饰器应对慢调用记录警告日志。"""
+        from unittest.mock import patch
+        from app.core.profiler import profile, Profiler
+
+        profiler = Profiler(slow_threshold_ms=5.0)
+        app.profiler = profiler  # type: ignore[attr-defined]
+
+        @profile()
+        def slow_func():
+            time.sleep(0.02)
+            return 42
+
+        with patch("app.core.profiler.logger.warning") as mock_warn:
+            slow_func()
+
+        assert mock_warn.call_count >= 1
+        assert any("SLOW_QUERY" in str(call.args[0]) for call in mock_warn.call_args_list)

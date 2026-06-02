@@ -1,25 +1,40 @@
-# VCW 基础设施 — Redis + PostgreSQL
-#
-# 启动：
-#   docker-compose up -d
-#
-# 停止：
-#   docker-compose down
-#
-# 查看日志：
-#   docker-compose logs -f
+# =============================================================================
+# VCW 生产级容器编排
+# Services: Web (Flask) + PostgreSQL + Redis + Celery Worker + Celery Beat
+# =============================================================================
 
 version: "3.8"
 
+x-common-env: &common-env
+  SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://vcw:vcw@postgres:5432/vcw}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw}
+  VCW_API_KEY: ${VCW_API_KEY:-}
+  VCW_BASE_URL: ${VCW_BASE_URL:-https://api.openai.com/v1}
+  VCW_MODEL: ${VCW_MODEL:-gpt-4o}
+  FLASK_DEBUG: "false"
+  WAIT_TIMEOUT: "30"
+  WAIT_INTERVAL: "2"
+
 services:
+  # ---------------------------------------------------------------------------
+  # Redis — 消息队列与缓存
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: vcw-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --save 300 10
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -29,17 +44,23 @@ services:
       resources:
         limits:
           memory: 512M
+        reservations:
+          memory: 64M
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — 主数据库
+  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
     container_name: vcw-postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: vcw
-      POSTGRES_PASSWORD: vcw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vcw}
       POSTGRES_DB: vcw
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -51,88 +72,134 @@ services:
       resources:
         limits:
           memory: 1G
+        reservations:
+          memory: 128M
     restart: unless-stopped
 
-  # Web 服务（Flask 应用）
+  # ---------------------------------------------------------------------------
+  # Web — Flask 应用
+  # ---------------------------------------------------------------------------
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
     container_name: vcw-web
-    command: python wsgi.py
+    environment:
+      <<: *common-env
+      WAIT_REDIS_URL: redis://redis:6379/0
+      WAIT_DATABASE_URL: postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
     ports:
       - "5000:5000"
-    environment:
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-      DATABASE_URL: postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
-      VCW_API_KEY: ${VCW_API_KEY:-}
-      VCW_BASE_URL: ${VCW_BASE_URL:-https://api.openai.com/v1}
-      VCW_MODEL: ${VCW_MODEL:-gpt-4o}
-      FLASK_DEBUG: "false"
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
     volumes:
-      - .:/app
+      # 仅持久化数据目录，不挂载源码（生产镜像内已包含）
+      - vcw_data:/app/data
+      - vcw_logs:/app/logs
     working_dir: /app
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
     deploy:
       resources:
         limits:
           memory: 512M
+        reservations:
+          memory: 128M
     restart: unless-stopped
 
-  # Celery Worker（可选，生产环境使用）
+  # ---------------------------------------------------------------------------
+  # Celery Worker
+  # ---------------------------------------------------------------------------
   worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
     container_name: vcw-worker
-    command: celery -A celery_app worker -l info -c 2 -Q celery,vcw
+    command: >
+      celery -A celery_app worker
+      -l info
+      -c ${CELERY_WORKERS:-2}
+      -Q celery,vcw
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
+      <<: *common-env
+      WAIT_REDIS_URL: redis://redis:6379/0
+      WAIT_DATABASE_URL: postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      web:
+        condition: service_started
     volumes:
-      - .:/app
+      - vcw_data:/app/data
+      - vcw_logs:/app/logs
     working_dir: /app
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app inspect ping --destination celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
           memory: 1G
+        reservations:
+          memory: 256M
     restart: unless-stopped
 
-  # Celery Beat（定时任务调度，可选）
+  # ---------------------------------------------------------------------------
+  # Celery Beat — 定时任务调度
+  # ---------------------------------------------------------------------------
   beat:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
     container_name: vcw-beat
-    command: celery -A celery_app beat -l info
+    command: >
+      celery -A celery_app beat
+      -l info
+      --scheduler celery.beat.PersistentScheduler
+      -s /tmp/celerybeat-schedule
     environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: db+postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
+      <<: *common-env
+      WAIT_REDIS_URL: redis://redis:6379/0
+      WAIT_DATABASE_URL: postgresql+psycopg2://vcw:vcw@postgres:5432/vcw
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      web:
+        condition: service_started
     volumes:
-      - .:/app
+      - vcw_data:/app/data
+      - vcw_logs:/app/logs
     working_dir: /app
     deploy:
       resources:
         limits:
           memory: 256M
+        reservations:
+          memory: 64M
     restart: unless-stopped
 
 volumes:
   redis_data:
   postgres_data:
+  vcw_data:
+  vcw_logs:

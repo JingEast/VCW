@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # Stage 1: Lint
+  # ==========================================================================
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 mypy
+
+      - name: flake8
+        run: flake8 . --max-line-length=120
+
+      - name: mypy
+        run: mypy . --ignore-missing-imports
+
+  # ==========================================================================
+  # Stage 2: Test + Coverage
+  # ==========================================================================
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov
+
+      - name: Run tests with coverage
+        run: pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # ==========================================================================
+  # Stage 3: Migration Check (Alembic)
+  # ==========================================================================
+  migration-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vcw
+          POSTGRES_PASSWORD: vcw
+          POSTGRES_DB: vcw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+psycopg2://vcw:vcw@localhost:5432/vcw
+        run: python -m alembic upgrade head
+
+      - name: Alembic check (schema drift detection)
+        env:
+          DATABASE_URL: postgresql+psycopg2://vcw:vcw@localhost:5432/vcw
+        run: python scripts/check_migrations.py
+
+  # ==========================================================================
+  # Stage 4: Docker Build & Smoke Test
+  # 前置条件: lint + test + migration-check 全部通过
+  # ==========================================================================
+  docker-smoke:
+    needs: [lint, test, migration-check]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images
+        run: docker compose -p vcw build
+
+      - name: Smoke test
+        run: bash scripts/ci-smoke-test.sh
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs
+          path: |
+            docker-logs/
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -p vcw down -v --remove-orphans
+
+  # ==========================================================================
+  # Stage 5: Push to Docker Hub
+  # 前置条件: docker-smoke 通过
+  # 触发条件: push 到 main/master 分支
+  # ==========================================================================
+  push:
+    needs: [docker-smoke]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images for push
+        run: docker compose -p vcw build
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Tag and push web image
+        run: |
+          docker tag vcw-web ${{ secrets.DOCKER_USERNAME }}/vcw-web:${{ github.sha }}
+          docker tag vcw-web ${{ secrets.DOCKER_USERNAME }}/vcw-web:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/vcw-web:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/vcw-web:latest
+
+      - name: Tag and push worker image
+        run: |
+          docker tag vcw-worker ${{ secrets.DOCKER_USERNAME }}/vcw-worker:${{ github.sha }}
+          docker tag vcw-worker ${{ secrets.DOCKER_USERNAME }}/vcw-worker:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/vcw-worker:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/vcw-worker:latest
+
+      - name: Tag and push beat image
+        run: |
+          docker tag vcw-beat ${{ secrets.DOCKER_USERNAME }}/vcw-beat:${{ github.sha }}
+          docker tag vcw-beat ${{ secrets.DOCKER_USERNAME }}/vcw-beat:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/vcw-beat:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/vcw-beat:latest

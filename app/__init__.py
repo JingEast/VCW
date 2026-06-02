@@ -1,31 +1,38 @@
+import logging
 import os
 import time
 import traceback
 import uuid
 from flask import Flask, has_request_context, jsonify, request
 
+logger = logging.getLogger(__name__)
+
 
 def create_app() -> Flask:
     """Flask Application Factory"""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # 加载并校验应用配置（必须在 Flask app 创建前执行）
+    from app.core.config_schema import load_settings, validate_startup_config
+
+    settings = load_settings()
+    startup_warnings = validate_startup_config()
+    for warning in startup_warnings:
+        logger.warning("[STARTUP_CONFIG] %s", warning)
+    logger.info(
+        "[STARTUP_CONFIG] Configuration loaded: %s",
+        settings.to_safe_dict(),
+    )
+
     app = Flask(
         __name__,
         template_folder=os.path.join(base_dir, "templates"),
         static_folder=os.path.join(base_dir, "static"),
         static_url_path="/static",
     )
-    secret_key = os.environ.get("SECRET_KEY")
-    if not secret_key:
-        import warnings
-        warnings.warn(
-            "SECRET_KEY environment variable is not set. "
-            "Using a random key which will invalidate sessions across restarts. "
-            "Please set SECRET_KEY in production.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        secret_key = os.urandom(32).hex()
-    app.config["SECRET_KEY"] = secret_key
+    app.config["SECRET_KEY"] = settings.secret_key or os.urandom(32).hex()
+    app.config["SQLALCHEMY_DATABASE_URI"] = settings.database_url
+    app.config["CORS_ORIGINS"] = settings.cors_origins
 
     # 初始化应用容器（dependency-injector）
     from app.core.container import AppContainer, set_container
@@ -33,6 +40,14 @@ def create_app() -> Flask:
     container = AppContainer()
     app.container = container  # type: ignore[attr-defined]
     set_container(container)
+
+    # 初始化限流器（需在路由注册前初始化）
+    from app.core.limiter import limiter
+
+    limiter.init_app(app)
+    # 测试环境禁用限流（避免测试请求被拦截）
+    if app.config.get("TESTING"):
+        limiter.enabled = False
 
     # 初始化日志与全局错误处理
     from app.core.logging_config import setup_logging
@@ -88,6 +103,7 @@ def create_app() -> Flask:
     # 健康检查端点（供 Docker / 负载均衡器使用）
     # ============================================================
     @app.route("/health")
+    @limiter.limit("60 per minute")
     def health():
         from celery_app import health_check as celery_health
         celery_status = celery_health()
@@ -100,6 +116,7 @@ def create_app() -> Flask:
     # Prometheus 指标端点
     # ============================================================
     @app.route("/metrics")
+    @limiter.limit("30 per minute")
     def metrics_endpoint():
         collector = getattr(app, "metrics", None)
         if collector is None:
@@ -143,7 +160,24 @@ def create_app() -> Flask:
         profiler = getattr(app, "profiler", None)
         if profiler is None:
             return jsonify({"error": "profiler not initialized"}), 500
-        return jsonify(profiler.snapshot())
+        snapshot = profiler.snapshot()
+        # 支持通过 query 参数动态过滤慢查询阈值
+        try:
+            threshold_ms = float(request.args.get("threshold_ms", profiler.slow_threshold_ms))
+        except (ValueError, TypeError):
+            threshold_ms = profiler.slow_threshold_ms
+        if threshold_ms != profiler.slow_threshold_ms:
+            snapshot["slow_queries"] = [
+                {
+                    "name": r.name,
+                    "duration_ms": round(r.duration_ms, 2),
+                    "meta": r.meta,
+                }
+                for r in profiler.slow_queries(threshold_ms)
+            ]
+            snapshot["slow_threshold_ms"] = round(threshold_ms, 2)
+            snapshot["slow_count"] = len(snapshot["slow_queries"])
+        return jsonify(snapshot)
 
     @app.route("/debug/profile/clear", methods=["POST"])
     def debug_profile_clear():
@@ -159,6 +193,12 @@ def create_app() -> Flask:
     # ============================================================
     _register_compression(app)
     _register_cache_headers(app)
+
+    # ============================================================
+    # 安全响应头与 CORS
+    # ============================================================
+    _register_security_headers(app)
+    _register_cors(app)
 
     # ============================================================
     # 兼容处理：裸端点名与 request.endpoint 修补
@@ -456,6 +496,74 @@ def _register_error_handlers(app: Flask) -> None:
             "trace_id": trace_id,
             "meta": {},
         }), 500
+
+
+def _register_security_headers(app: Flask) -> None:
+    """注册全局安全响应头（CSP、HSTS、X-Frame-Options 等）。"""
+
+    @app.after_request
+    def _add_security_headers(response):
+        # 防止 MIME 类型嗅探
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        # 防止点击劫持
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        # XSS 保护（旧浏览器兼容）
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        # Referrer 策略
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        # 权限策略
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "geolocation=(), microphone=(), camera=(), payment=()",
+        )
+        # 内容安全策略（CSP）
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob:; "
+            "font-src 'self'; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self';"
+        )
+        response.headers.setdefault("Content-Security-Policy", csp)
+        # HSTS（仅生产环境 HTTPS）
+        if not app.debug and request.is_secure:
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
+
+
+def _register_cors(app: Flask) -> None:
+    """注册 CORS：API 端点开放跨域，页面端点不开放。"""
+    try:
+        from flask_cors import CORS
+    except ImportError:
+        app.logger.warning("flask-cors not installed, CORS disabled")
+        return
+
+    # 允许的来源（通过环境变量配置，默认仅 localhost）
+    origins = os.environ.get("CORS_ORIGINS", "http://localhost:5000,http://127.0.0.1:5000")
+    origin_list = [o.strip() for o in origins.split(",") if o.strip()]
+
+    CORS(
+        app,
+        resources={
+            r"/api/v1/*": {
+                "origins": origin_list,
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization", "X-Trace-Id"],
+                "supports_credentials": True,
+            },
+            r"/metrics": {
+                "origins": origin_list,
+                "methods": ["GET"],
+            },
+        },
+    )
 
 
 def _register_compression(app: Flask) -> None:

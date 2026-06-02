@@ -304,7 +304,7 @@ class TrendRepository(BaseRepository):
         for t in trends:
             t.timeliness_score = self._calc_timeliness_score(t)  # type: ignore[assignment]
             if t.is_manual:
-                t.timeliness_score = max(t.timeliness_score or 0, 85)  # type: ignore[type-var,assignment]
+                t.timeliness_score = max(t.timeliness_score or 0, 85)  # type: ignore
             t.composite_score = (t.relevance_score or 0) * 0.55 + (
                 t.timeliness_score or 0
             ) * 0.45  # type: ignore[assignment]

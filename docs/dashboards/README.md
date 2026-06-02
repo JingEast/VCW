@@ -21,6 +21,12 @@
 | LLM Latency p99 | `vcw_llm_request_duration_seconds` | LLM 供应商性能对比 |
 | Celery Tasks by Status | `vcw_celery_tasks_total` | 任务队列吞吐与失败趋势 |
 | Celery Success Rate | `vcw_celery_tasks_total` | 批量生成任务可靠性 |
+| DB Pool Size | `db_pool_size` | 连接池总容量 |
+| DB Pool Checked In | `db_pool_checked_in` | 空闲连接数 |
+| DB Pool Checked Out | `db_pool_checked_out` | 活跃连接数 |
+| DB Pool Overflow | `db_pool_overflow` | 超出池大小的连接数 |
+| Slow Query Rate | `vcw_slow_queries_total` | 按名称聚合的慢查询速率 |
+| Slow Query Total | `vcw_slow_queries_total` | 慢查询累计总数 |
 
 **PromQL 速查**:
 
@@ -41,6 +47,12 @@ sum by (provider, status) (rate(vcw_llm_calls_total[5m]))
 sum(rate(vcw_celery_tasks_total{status="success"}[5m]))
   /
 sum(rate(vcw_celery_tasks_total[5m]))
+
+# 慢查询速率
+sum by (name) (rate(vcw_slow_queries_total[5m]))
+
+# 连接池使用率
+sum(db_pool_checked_out) / sum(db_pool_size)
 ```
 
 **兼容性**:

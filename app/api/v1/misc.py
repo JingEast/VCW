@@ -4,8 +4,11 @@ API 杂项路由（API v1 Blueprint）
 """
 from flask import Blueprint, request
 
+import os
+
 from app.core.container import get_service
 from app.core.flask_cache import cache
+from app.core.limiter import limiter
 from app.api.v1.common import success_response, error_response
 from domains.editor.application import SaveDraftCommand
 from domains.prompt.application import BuildPromptsQuery, GetModelStatusQuery
@@ -41,6 +44,7 @@ def save_stream():
 
 @bp.route("/model/status")
 @cache.cached(timeout=30, key_prefix="api_model_status")
+@limiter.limit("60 per minute")
 def model_status():
     """查询模型端点健康状态"""
     try:
@@ -68,12 +72,46 @@ def check_prompt():
     })
 
 
+# 允许预览的文件扩展名白名单
+_SAFE_PREVIEW_EXTENSIONS = {".txt", ".md", ".json", ".yaml", ".yml", ".html", ".css", ".js"}
+# 允许预览的根目录（相对项目根目录）
+_SAFE_PREVIEW_DIRS = {"data", "templates", "static", "docs"}
+
+
 @bp.route("/files/preview/<path:filename>")
+@limiter.limit("30 per minute")
 def preview_file(filename):
-    """API：预览文件内容"""
+    """API：预览文件内容（受路径遍历保护）。"""
+    # 1. 禁止绝对路径
+    if os.path.isabs(filename):
+        return error_response("INVALID_PATH", "Absolute paths are not allowed", status_code=400)
+    # 2. 禁止路径遍历符号
+    if ".." in filename or "~" in filename:
+        return error_response("INVALID_PATH", "Path traversal is not allowed", status_code=400)
+    # 3. 扩展名白名单
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in _SAFE_PREVIEW_EXTENSIONS:
+        return error_response("INVALID_FILE_TYPE", f"File type '{ext}' not allowed", status_code=400)
+    # 4. 只允许特定根目录
+    top_dir = filename.split("/")[0]
+    if top_dir not in _SAFE_PREVIEW_DIRS:
+        return error_response("INVALID_PATH", f"Directory '{top_dir}' not allowed", status_code=400)
+    # 5. 解析为绝对路径并校验
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    target_path = os.path.abspath(os.path.join(base_dir, filename))
+    allowed_roots = [os.path.abspath(os.path.join(base_dir, d)) for d in _SAFE_PREVIEW_DIRS]
+    if not any(target_path.startswith(r + os.sep) for r in allowed_roots):
+        return error_response("INVALID_PATH", "File outside allowed directories", status_code=400)
+    # 6. 读取文件
     try:
-        with open(filename, "r", encoding="utf-8") as f:
+        with open(target_path, "r", encoding="utf-8") as f:
             content = f.read()
+        # 限制返回内容大小（防止大文件导致内存问题）
+        max_size = 1024 * 1024  # 1MB
+        if len(content) > max_size:
+            content = content[:max_size] + "\n[Truncated: file exceeds 1MB limit]"
         return success_response({"content": content})
+    except FileNotFoundError:
+        return error_response("FILE_NOT_FOUND", "File not found", status_code=404)
     except Exception as e:
         return error_response("FILE_READ_ERROR", str(e))

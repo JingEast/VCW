@@ -7,7 +7,7 @@ from app.core.datetime_utils import utc_now
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column, String, Text, Integer, Boolean,
-    DateTime, JSON, UniqueConstraint,
+    DateTime, JSON, UniqueConstraint, Index,
 )
 from sqlalchemy.orm import declarative_base, mapped_column
 
@@ -17,6 +17,13 @@ Base = declarative_base()
 class Trend(Base):  # type: ignore[valid-type, misc]
     """热点话题实体（原 trend_db.json 中的 trends 数组）"""
     __tablename__ = "trends"
+    __table_args__ = (
+        Index("ix_trends_is_archived", "is_archived"),
+        Index("ix_trends_category", "category"),
+        Index("ix_trends_published_at", "published_at"),
+        Index("ix_trends_fetched_at", "fetched_at"),
+        Index("ix_trends_archived_published", "is_archived", "published_at"),
+    )
 
     id = Column(String(16), primary_key=True)
     title = Column(Text, nullable=False)
@@ -102,6 +109,10 @@ class Trend(Base):  # type: ignore[valid-type, misc]
 class MemoryEntry(Base):  # type: ignore[valid-type, misc]
     """记忆库条目实体（原 memory_db.json 中的 entries 数组）"""
     __tablename__ = "memory_entries"
+    __table_args__ = (
+        Index("ix_memory_entries_is_avoided", "is_avoided"),
+        Index("ix_memory_entries_created_at", "created_at"),
+    )
 
     id = Column(String(16), primary_key=True)
     topic = Column(String(200), nullable=False, index=True)
@@ -150,6 +161,13 @@ class MemoryEntry(Base):  # type: ignore[valid-type, misc]
 class GenerationJob(Base):  # type: ignore[valid-type, misc]
     """生成任务实体（原 task_queue.db 中的 tasks 表）"""
     __tablename__ = "generation_jobs"
+    __table_args__ = (
+        Index("ix_generation_jobs_status", "status"),
+        Index("ix_generation_jobs_celery_task_id", "celery_task_id"),
+        Index("ix_generation_jobs_dead_letter", "dead_letter"),
+        Index("ix_generation_jobs_created_at", "created_at"),
+        Index("ix_generation_jobs_parent_status", "parent_batch_id", "status"),
+    )
 
     id = Column(String(16), primary_key=True)
     job_type = Column(String(50), nullable=False)      # 原 type

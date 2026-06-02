@@ -1,0 +1,73 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+logs/
+*.log
+
+# Data (keep structure, ignore contents)
+data/edited/*
+data/generated/*
+!data/edited/.gitkeep
+!data/generated/.gitkeep
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Locust / Performance
+locustfile.py
+
+# Scripts (keep entrypoint & smoke test)
+scripts/*.py
+!scripts/docker-entrypoint.sh
+!scripts/wait-for-services.py
+!scripts/check_migrations.py
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# Celery beat schedule
+celerybeat-schedule
