@@ -3,6 +3,7 @@ HTML Provider
 处理 NEWS_SITES 中的 HTML 源 + EDU_SITES 培训机构官网 + 单个 URL 直接抓取。
 包含所有站点专用解析器。
 """
+
 import re
 import urllib.parse
 from datetime import datetime
@@ -103,7 +104,7 @@ class HtmlProvider(BaseProvider):
         try:
             patterns = [
                 r'<a[^>]*href="([^"]*)"[^>]*>([^<]{10,80})</a>',
-                r'<h[23][^>]*>(.*?)</h[23]>',
+                r"<h[23][^>]*>(.*?)</h[23]>",
                 r'<div[^>]*class="[^"]*title[^"]*"[^>]*>(.*?)</div>',
             ]
 
@@ -118,23 +119,25 @@ class HtmlProvider(BaseProvider):
                         title = match
                         url = base_url
 
-                    title = re.sub(r'<[^>]+>', '', title).strip()
+                    title = re.sub(r"<[^>]+>", "", title).strip()
                     if title and 10 < len(title) < 100 and title not in seen:
                         seen.add(title)
                         inferred = TimeParser.infer_date_from_text(title)
                         published_at = inferred.strftime("%Y-%m-%d %H:%M") if inferred else ""
 
-                        trends.append({
-                            "title": title,
-                            "summary": "",
-                            "source": source_name,
-                            "url": url,
-                            "published_at": published_at,
-                            "fetched_at": datetime.now().isoformat(),
-                            "keyword": "",
-                            "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
-                            "_time_source": "title_inference",
-                        })
+                        trends.append(
+                            {
+                                "title": title,
+                                "summary": "",
+                                "source": source_name,
+                                "url": url,
+                                "published_at": published_at,
+                                "fetched_at": datetime.now().isoformat(),
+                                "keyword": "",
+                                "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
+                                "_time_source": "title_inference",
+                            }
+                        )
 
                         if len(trends) >= 10:
                             break
@@ -166,16 +169,16 @@ class HtmlProvider(BaseProvider):
                     href, title = match
                 else:
                     continue
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                title = re.sub(r'\s+', ' ', title)
+                title = re.sub(r"<[^>]+>", "", title).strip()
+                title = re.sub(r"\s+", " ", title)
                 if not title or len(title) < 10 or title in seen or len(title) > 120:
                     continue
                 seen.add(title)
-                if href.startswith('/'):
-                    href = 'https://news.mingpao.com' + href
-                elif not href.startswith('http'):
+                if href.startswith("/"):
+                    href = "https://news.mingpao.com" + href
+                elif not href.startswith("http"):
                     href = urllib.parse.urljoin(url, href)
-                date_match = re.search(r'/article/(\d{8})/', href)
+                date_match = re.search(r"/article/(\d{8})/", href)
                 published_at = ""
                 time_source = "pending"
                 if date_match:
@@ -186,13 +189,19 @@ class HtmlProvider(BaseProvider):
                         time_source = "url_date"
                     except ValueError:
                         pass
-                trends.append({
-                    "title": title, "summary": "", "source": source_name,
-                    "url": href, "published_at": published_at,
-                    "fetched_at": datetime.now().isoformat(), "keyword": "",
-                    "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
-                    "_time_source": time_source,
-                })
+                trends.append(
+                    {
+                        "title": title,
+                        "summary": "",
+                        "source": source_name,
+                        "url": href,
+                        "published_at": published_at,
+                        "fetched_at": datetime.now().isoformat(),
+                        "keyword": "",
+                        "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
+                        "_time_source": time_source,
+                    }
+                )
                 if len(trends) >= max_items:
                     break
             if len(trends) >= max_items:
@@ -222,20 +231,26 @@ class HtmlProvider(BaseProvider):
                     href, title = match[0], match[1]
                 else:
                     continue
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                title = re.sub(r'\s+', ' ', title)
+                title = re.sub(r"<[^>]+>", "", title).strip()
+                title = re.sub(r"\s+", " ", title)
                 if not title or len(title) < 10 or title in seen or len(title) > 120:
                     continue
                 seen.add(title)
-                if not href.startswith('http'):
+                if not href.startswith("http"):
                     href = urllib.parse.urljoin(url, href)
-                trends.append({
-                    "title": title, "summary": "", "source": source_name,
-                    "url": href, "published_at": "",
-                    "fetched_at": datetime.now().isoformat(), "keyword": "",
-                    "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
-                    "_time_source": "pending",
-                })
+                trends.append(
+                    {
+                        "title": title,
+                        "summary": "",
+                        "source": source_name,
+                        "url": href,
+                        "published_at": "",
+                        "fetched_at": datetime.now().isoformat(),
+                        "keyword": "",
+                        "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
+                        "_time_source": "pending",
+                    }
+                )
                 if len(trends) >= max_items:
                     break
             if len(trends) >= max_items:
@@ -260,22 +275,28 @@ class HtmlProvider(BaseProvider):
                     href, title = match[0], match[1]
                 else:
                     continue
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                title = re.sub(r'\s+', ' ', title)
+                title = re.sub(r"<[^>]+>", "", title).strip()
+                title = re.sub(r"\s+", " ", title)
                 if not title or len(title) < 10 or title in seen or len(title) > 120:
                     continue
                 seen.add(title)
-                if href.startswith('/'):
-                    href = 'https://www.hk01.com' + href
-                elif not href.startswith('http'):
+                if href.startswith("/"):
+                    href = "https://www.hk01.com" + href
+                elif not href.startswith("http"):
                     href = urllib.parse.urljoin(url, href)
-                trends.append({
-                    "title": title, "summary": "", "source": source_name,
-                    "url": href, "published_at": "",
-                    "fetched_at": datetime.now().isoformat(), "keyword": "",
-                    "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
-                    "_time_source": "pending",
-                })
+                trends.append(
+                    {
+                        "title": title,
+                        "summary": "",
+                        "source": source_name,
+                        "url": href,
+                        "published_at": "",
+                        "fetched_at": datetime.now().isoformat(),
+                        "keyword": "",
+                        "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
+                        "_time_source": "pending",
+                    }
+                )
                 if len(trends) >= max_items:
                     break
             if len(trends) >= max_items:
@@ -300,20 +321,26 @@ class HtmlProvider(BaseProvider):
                     href, title = match[0], match[1]
                 else:
                     continue
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                title = re.sub(r'\s+', ' ', title)
+                title = re.sub(r"<[^>]+>", "", title).strip()
+                title = re.sub(r"\s+", " ", title)
                 if not title or len(title) < 10 or title in seen or len(title) > 120:
                     continue
                 seen.add(title)
-                if not href.startswith('http'):
+                if not href.startswith("http"):
                     href = urllib.parse.urljoin(url, href)
-                trends.append({
-                    "title": title, "summary": "", "source": source_name,
-                    "url": href, "published_at": "",
-                    "fetched_at": datetime.now().isoformat(), "keyword": "",
-                    "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
-                    "_time_source": "pending",
-                })
+                trends.append(
+                    {
+                        "title": title,
+                        "summary": "",
+                        "source": source_name,
+                        "url": href,
+                        "published_at": "",
+                        "fetched_at": datetime.now().isoformat(),
+                        "keyword": "",
+                        "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
+                        "_time_source": "pending",
+                    }
+                )
                 if len(trends) >= max_items:
                     break
             if len(trends) >= max_items:
@@ -342,23 +369,23 @@ class HtmlProvider(BaseProvider):
                 elif isinstance(match, str):
                     href = match
                     idx = html.find(href)
-                    nearby = html[max(0, idx-300):min(len(html), idx+300)]
-                    title_match = re.search(r'>([^<]{15,100})<', nearby)
+                    nearby = html[max(0, idx - 300) : min(len(html), idx + 300)]
+                    title_match = re.search(r">([^<]{15,100})<", nearby)
                     title = title_match.group(1) if title_match else ""
                 else:
                     continue
 
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                title = re.sub(r'\s+', ' ', title)
+                title = re.sub(r"<[^>]+>", "", title).strip()
+                title = re.sub(r"\s+", " ", title)
                 if not title or len(title) < 10 or title in seen or len(title) > 150:
                     continue
                 seen.add(title)
-                if not href.startswith('http'):
+                if not href.startswith("http"):
                     href = urllib.parse.urljoin(url, href)
 
                 published_at = ""
                 _time_source = "pending"
-                date_match = re.search(r'/a/(\d{4})(\d{2})/(\d{2})/', href)
+                date_match = re.search(r"/a/(\d{4})(\d{2})/(\d{2})/", href)
                 if date_match:
                     try:
                         y, m, d = int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3))
@@ -370,22 +397,26 @@ class HtmlProvider(BaseProvider):
                 summary = ""
                 idx = html.find(href)
                 if idx > 0:
-                    nearby = html[max(0, idx-500):min(len(html), idx+500)]
-                    desc_match = re.search(r'<p[^>]*class="[^"]*desc[^"]*"[^>]*>(.*?)</p>', nearby, re.DOTALL | re.IGNORECASE)
+                    nearby = html[max(0, idx - 500) : min(len(html), idx + 500)]
+                    desc_match = re.search(
+                        r'<p[^>]*class="[^"]*desc[^"]*"[^>]*>(.*?)</p>', nearby, re.DOTALL | re.IGNORECASE
+                    )
                     if desc_match:
-                        summary = re.sub(r'<[^>]+>', '', desc_match.group(1)).strip()[:200]
+                        summary = re.sub(r"<[^>]+>", "", desc_match.group(1)).strip()[:200]
 
-                trends.append({
-                    "title": title,
-                    "summary": summary,
-                    "source": source_name,
-                    "url": href,
-                    "published_at": published_at,
-                    "fetched_at": datetime.now().isoformat(),
-                    "keyword": "",
-                    "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
-                    "_time_source": _time_source,
-                })
+                trends.append(
+                    {
+                        "title": title,
+                        "summary": summary,
+                        "source": source_name,
+                        "url": href,
+                        "published_at": published_at,
+                        "fetched_at": datetime.now().isoformat(),
+                        "keyword": "",
+                        "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
+                        "_time_source": _time_source,
+                    }
+                )
                 if len(trends) >= max_items:
                     break
             if len(trends) >= max_items:
@@ -414,17 +445,17 @@ class HtmlProvider(BaseProvider):
                     href, title = match[0], match[1]
                 else:
                     continue
-                title = re.sub(r'<[^>]+>', '', title).strip()
-                title = re.sub(r'\s+', ' ', title)
+                title = re.sub(r"<[^>]+>", "", title).strip()
+                title = re.sub(r"\s+", " ", title)
                 if not title or len(title) < 10 or title in seen or len(title) > 150:
                     continue
                 seen.add(title)
-                if not href.startswith('http'):
+                if not href.startswith("http"):
                     href = urllib.parse.urljoin(url, href)
 
                 published_at = ""
                 _time_source = "pending"
-                date_match = re.search(r'/a/(\d{4})(\d{2})/(\d{2})/', href)
+                date_match = re.search(r"/a/(\d{4})(\d{2})/(\d{2})/", href)
                 if date_match:
                     try:
                         y, m, d = int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3))
@@ -436,22 +467,24 @@ class HtmlProvider(BaseProvider):
                 summary = ""
                 idx = html.find(href)
                 if idx > 0:
-                    nearby = html[max(0, idx-400):min(len(html), idx+400)]
-                    desc_match = re.search(r'<p[^>]*>([^<]{20,300})</p>', nearby, re.DOTALL)
+                    nearby = html[max(0, idx - 400) : min(len(html), idx + 400)]
+                    desc_match = re.search(r"<p[^>]*>([^<]{20,300})</p>", nearby, re.DOTALL)
                     if desc_match:
-                        summary = re.sub(r'<[^>]+>', '', desc_match.group(1)).strip()[:200]
+                        summary = re.sub(r"<[^>]+>", "", desc_match.group(1)).strip()[:200]
 
-                trends.append({
-                    "title": title,
-                    "summary": summary,
-                    "source": source_name,
-                    "url": href,
-                    "published_at": published_at,
-                    "fetched_at": datetime.now().isoformat(),
-                    "keyword": "",
-                    "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
-                    "_time_source": _time_source,
-                })
+                trends.append(
+                    {
+                        "title": title,
+                        "summary": summary,
+                        "source": source_name,
+                        "url": href,
+                        "published_at": published_at,
+                        "fetched_at": datetime.now().isoformat(),
+                        "keyword": "",
+                        "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
+                        "_time_source": _time_source,
+                    }
+                )
                 if len(trends) >= max_items:
                     break
             if len(trends) >= max_items:
@@ -473,16 +506,16 @@ class HtmlProvider(BaseProvider):
 
             title = ""
             title_patterns = [
-                r'<title[^>]*>(.*?)</title>',
+                r"<title[^>]*>(.*?)</title>",
                 r'<meta[^>]*property="og:title"[^>]*content="([^"]+)"',
                 r'<meta[^>]*name="title"[^>]*content="([^"]+)"',
-                r'<h1[^>]*>(.*?)</h1>',
+                r"<h1[^>]*>(.*?)</h1>",
             ]
             for pattern in title_patterns:
                 m = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
                 if m:
-                    title = re.sub(r'<[^>]+>', '', m.group(1)).strip()
-                    title = re.sub(r'\s+', ' ', title)
+                    title = re.sub(r"<[^>]+>", "", m.group(1)).strip()
+                    title = re.sub(r"\s+", " ", title)
                     if title and len(title) > 5:
                         break
 
@@ -515,9 +548,13 @@ class HtmlProvider(BaseProvider):
 
             if title:
                 return {
-                    "title": title, "summary": summary[:200], "source": domain,
-                    "url": article_url, "published_at": published_at,
-                    "fetched_at": datetime.now().isoformat(), "keyword": "",
+                    "title": title,
+                    "summary": summary[:200],
+                    "source": domain,
+                    "url": article_url,
+                    "published_at": published_at,
+                    "fetched_at": datetime.now().isoformat(),
+                    "keyword": "",
                     "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
                     "_time_source": "direct_url",
                 }

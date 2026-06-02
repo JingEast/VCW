@@ -195,7 +195,9 @@ class TimeParser:
                 special_match = re.match(r'(\d{2})\.(\d{2}),(\d{4})', raw)
                 if special_match:
                     try:
-                        month, day, year = int(special_match.group(1)), int(special_match.group(2)), int(special_match.group(3))
+                        month = int(special_match.group(1))
+                        day = int(special_match.group(2))
+                        year = int(special_match.group(3))
                         candidates.append((datetime(year, month, day), 1))
                     except ValueError:
                         pass
@@ -215,7 +217,11 @@ class TimeParser:
         for pattern, precision in cn_patterns:
             for m in re.finditer(pattern, html):
                 try:
-                    year, month, day, hour, minute = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))
+                    year = int(m.group(1))
+                    month = int(m.group(2))
+                    day = int(m.group(3))
+                    hour = int(m.group(4))
+                    minute = int(m.group(5))
                     candidates.append((datetime(year, month, day, hour, minute), precision))
                 except ValueError:
                     continue
@@ -402,7 +408,7 @@ class UrlUtils:
 
         def ngrams(s, n=2):
             s = re.sub(r'[^\u4e00-\u9fff\w]', '', s.lower())
-            return set(s[i:i+n] for i in range(len(s)-n+1))
+            return set(s[i : i + n] for i in range(len(s) - n + 1))
 
         ga = ngrams(a)
         gb = ngrams(b)

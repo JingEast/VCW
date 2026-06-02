@@ -2,7 +2,6 @@
 SQLAlchemy ORM 模型
 定义 4 个核心实体：Trend / MemoryEntry / GenerationJob / GenerationResult
 """
-from datetime import datetime
 
 from app.core.datetime_utils import utc_now
 from pgvector.sqlalchemy import Vector

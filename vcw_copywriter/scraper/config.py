@@ -65,8 +65,20 @@ SEARCH_KEYWORDS = [
 NEWS_SITES = [
     {"name": "明报教育", "url": "https://news.mingpao.com/rss/pns/s00011.xml", "type": "rss"},
     {"name": "南华早报", "url": "https://www.scmp.com/rss/2/feed", "type": "rss", "filter_edu": True},
-    {"name": "文汇报", "url": "https://www.wenweipo.com/education", "type": "html", "parser": "wenweipo", "filter_edu": False},
-    {"name": "点新闻", "url": "https://www.dotdotnews.com/education", "type": "html", "parser": "dotdotnews", "filter_edu": False},
+    {
+        "name": "文汇报",
+        "url": "https://www.wenweipo.com/education",
+        "type": "html",
+        "parser": "wenweipo",
+        "filter_edu": False,
+    },
+    {
+        "name": "点新闻",
+        "url": "https://www.dotdotnews.com/education",
+        "type": "html",
+        "parser": "dotdotnews",
+        "filter_edu": False,
+    },
 ]
 
 
@@ -74,8 +86,18 @@ NEWS_SITES = [
 RSS_SOURCES = [
     {"name": "DSE00题库", "url": "https://www.dse00.com/feeds/posts/default?alt=rss", "category": "DSE"},
     {"name": "港大新闻", "url": "https://www.hku.hk/press/rss.xml", "category": "升学"},
-    {"name": "RTHK中文本地", "url": "http://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", "category": "综合", "filter_edu": True},
-    {"name": "香港政府新闻处", "url": "http://www.news.gov.hk/rss/news/topstories_en.xml", "category": "综合", "filter_edu": True},
+    {
+        "name": "RTHK中文本地",
+        "url": "http://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml",
+        "category": "综合",
+        "filter_edu": True,
+    },
+    {
+        "name": "香港政府新闻处",
+        "url": "http://www.news.gov.hk/rss/news/topstories_en.xml",
+        "category": "综合",
+        "filter_edu": True,
+    },
 ]
 
 

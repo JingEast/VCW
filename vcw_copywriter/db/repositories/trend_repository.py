@@ -3,6 +3,7 @@ Trend Repository
 热点话题数据访问层，封装所有 SQLAlchemy 查询逻辑。
 与原 TrendDatabase 的公共方法一一对应。
 """
+
 import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
@@ -39,6 +40,7 @@ class TrendRepository(BaseRepository):
         if not date_str:
             return None
         from email.utils import parsedate_to_datetime
+
         try:
             return parsedate_to_datetime(date_str)
         except (ValueError, TypeError):
@@ -46,7 +48,7 @@ class TrendRepository(BaseRepository):
         formats = ["%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"]
         for fmt in formats:
             try:
-                return datetime.strptime(date_str.strip()[:len(fmt)], fmt)
+                return datetime.strptime(date_str.strip()[: len(fmt)], fmt)
             except ValueError:
                 continue
         return None
@@ -87,13 +89,23 @@ class TrendRepository(BaseRepository):
 
     # ---------- CRUD ----------
 
-    def add(self, title: str, summary: str = "", source: str = "", url: str = "",  # type: ignore[override]
-            category: str = "未分类", tags: List[str] = None,
-            relevance_score: int = 50, click_count: int = 0,
-            published_at: str = "", is_manual: bool = False,
-            **extra_fields) -> Trend:
+    def add(  # type: ignore[override]
+        self,
+        title: str,
+        summary: str = "",
+        source: str = "",
+        url: str = "",
+        category: str = "未分类",
+        tags: List[str] = None,
+        relevance_score: int = 50,
+        click_count: int = 0,
+        published_at: str = "",
+        is_manual: bool = False,
+        **extra_fields,
+    ) -> Trend:
         self._clear_read_caches()
         import uuid
+
         trend = Trend(
             id=str(uuid.uuid4())[:8],
             title=title,
@@ -115,13 +127,19 @@ class TrendRepository(BaseRepository):
         self.session.refresh(trend)
         return trend
 
-    def add_manual(self, title: str, summary: str = "", url: str = "",
-                   published_at: str = "", relevance_score: int = 80) -> Trend:
+    def add_manual(
+        self, title: str, summary: str = "", url: str = "", published_at: str = "", relevance_score: int = 80
+    ) -> Trend:
         self._clear_read_caches()
         return self.add(
-            title=title, summary=summary, source="手动录入", url=url,
-            relevance_score=relevance_score, published_at=published_at,
-            is_manual=True, _time_source="manual" if published_at else "manual_pending",
+            title=title,
+            summary=summary,
+            source="手动录入",
+            url=url,
+            relevance_score=relevance_score,
+            published_at=published_at,
+            is_manual=True,
+            _time_source="manual" if published_at else "manual_pending",
         )
 
     def import_from_scraper(self, scraper_trends: List[Dict]) -> Tuple[int, int]:
@@ -137,8 +155,8 @@ class TrendRepository(BaseRepository):
         def _normalize_url(url: str) -> str:
             if not url:
                 return ""
-            url = re.sub(r'[?&](utm_|fbclid|gclid|ref|source)=([^&]*)', '', url)
-            return url.rstrip('?')
+            url = re.sub(r"[?&](utm_|fbclid|gclid|ref|source)=([^&]*)", "", url)
+            return url.rstrip("?")
 
         # 预加载现有数据，避免 N+1 查询
         all_urls = []
@@ -151,25 +169,17 @@ class TrendRepository(BaseRepository):
         existing_by_title: Dict[str, Trend] = {}
         if all_urls:
             # URL 匹配使用 like，无法直接用 IN；改为加载所有非归档趋势的 URL
-            url_candidates = (
-                self.session.query(Trend)
-                .filter(~Trend.is_archived)
-                .filter(Trend.url.isnot(None))
-                .all()
-            )
+            url_candidates = self.session.query(Trend).filter(~Trend.is_archived).filter(Trend.url.isnot(None)).all()
             for t in url_candidates:
                 if t.url:
-                    existing_by_url[t.url] = t
+                    existing_by_url[str(t.url)] = t
 
         if all_titles:
             title_candidates = (
-                self.session.query(Trend)
-                .filter(~Trend.is_archived)
-                .filter(Trend.title.in_(all_titles))
-                .all()
+                self.session.query(Trend).filter(~Trend.is_archived).filter(Trend.title.in_(all_titles)).all()
             )
             for t in title_candidates:
-                existing_by_title[t.title] = t
+                existing_by_title[str(t.title)] = t
 
         for st in scraper_trends:
             st_url = _normalize_url(st.get("url", ""))
@@ -226,8 +236,8 @@ class TrendRepository(BaseRepository):
                 self.session.add(new_trend)
                 # 加入映射，防止后续重复插入相同 URL/title
                 if new_trend.url:
-                    existing_by_url[new_trend.url] = new_trend
-                existing_by_title[new_trend.title] = new_trend
+                    existing_by_url[str(new_trend.url)] = new_trend
+                existing_by_title[str(new_trend.title)] = new_trend
                 added += 1
 
         self.session.commit()
@@ -238,9 +248,14 @@ class TrendRepository(BaseRepository):
     # ---------- 查询 ----------
 
     @cached(ttl_seconds=_CACHE_TTL, maxsize=64)
-    def get_all(self, limit: int = 100, offset: int = 0,  # type: ignore[override]
-                time_filter: str = "all", sort_by: str = "composite",
-                category_filter: str = "all") -> Tuple[List[Trend], int]:
+    def get_all(  # type: ignore[override]
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        time_filter: str = "all",
+        sort_by: str = "composite",
+        category_filter: str = "all",
+    ) -> Tuple[List[Trend], int]:
         query = self.session.query(Trend).filter(~Trend.is_archived)
 
         if category_filter != "all":
@@ -250,19 +265,13 @@ class TrendRepository(BaseRepository):
         if time_filter != "all":
             if time_filter == "today":
                 cutoff = now - timedelta(days=1)
-                query = query.filter(
-                    ((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff))
-                )
+                query = query.filter(((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff)))
             elif time_filter == "week":
                 cutoff = now - timedelta(days=7)
-                query = query.filter(
-                    ((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff))
-                )
+                query = query.filter(((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff)))
             elif time_filter == "month":
                 cutoff = now - timedelta(days=30)
-                query = query.filter(
-                    ((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff))
-                )
+                query = query.filter(((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff)))
             elif time_filter == "stale":
                 stale_cutoff = now - timedelta(days=self.ARCHIVE_DAYS)
                 query = query.filter(Trend.published_at <= stale_cutoff)
@@ -272,7 +281,7 @@ class TrendRepository(BaseRepository):
         if sort_by == "time":
             query = query.order_by(
                 Trend.published_at.desc().nullslast(),  # type: ignore[union-attr]
-                Trend.fetched_at.desc().nullslast(),    # type: ignore[union-attr]
+                Trend.fetched_at.desc().nullslast(),  # type: ignore[union-attr]
             )
             trends = query.offset(offset).limit(limit).all()
             return trends, total
@@ -284,15 +293,21 @@ class TrendRepository(BaseRepository):
 
         # composite sort: 运行时计算，限制候选集大小避免内存膨胀
         _CANDIDATE_LIMIT = 5000
-        trends = query.order_by(
-            Trend.published_at.desc().nullslast(),  # type: ignore[union-attr]
-        ).limit(_CANDIDATE_LIMIT).all()
+        trends = (
+            query.order_by(
+                Trend.published_at.desc().nullslast(),  # type: ignore[union-attr]
+            )
+            .limit(_CANDIDATE_LIMIT)
+            .all()
+        )
 
         for t in trends:
             t.timeliness_score = self._calc_timeliness_score(t)  # type: ignore[assignment]
             if t.is_manual:
-                t.timeliness_score = max(t.timeliness_score or 0, 85)  # type: ignore[arg-type]
-            t.composite_score = (t.relevance_score or 0) * 0.55 + (t.timeliness_score or 0) * 0.45  # type: ignore[assignment]
+                t.timeliness_score = max(t.timeliness_score or 0, 85)  # type: ignore[type-var,assignment]
+            t.composite_score = (t.relevance_score or 0) * 0.55 + (
+                t.timeliness_score or 0
+            ) * 0.45  # type: ignore[assignment]
 
         def _sort_key(t):
             score = t.composite_score or 0
@@ -314,11 +329,16 @@ class TrendRepository(BaseRepository):
         )
         for t in trends:
             timeliness = self._calc_timeliness_score(t)
-            click_bonus = min((t.click_count or 0) * 3, 20)
+            click_bonus = min((t.click_count or 0) * 3, 20)  # type: ignore[type-var]
             manual_bonus = 15 if t.is_manual else 0
-            t.composite_score = (t.relevance_score or 0) * 0.4 + timeliness * 0.4 + click_bonus + manual_bonus  # type: ignore[assignment]
+            t.composite_score = (
+                (t.relevance_score or 0) * 0.4  # type: ignore[assignment]
+                + timeliness * 0.4
+                + click_bonus
+                + manual_bonus
+            )
             t.timeliness_score = timeliness  # type: ignore[assignment]
-        trends.sort(key=lambda x: x.composite_score or 0, reverse=True)
+        trends.sort(key=lambda x: x.composite_score or 0, reverse=True)  # type: ignore[arg-type,return-value]
         return trends[:limit]
 
     @cached(ttl_seconds=_CACHE_TTL, maxsize=16)
@@ -337,7 +357,7 @@ class TrendRepository(BaseRepository):
             if timeliness >= 80:
                 t.timeliness_score = timeliness  # type: ignore[assignment]
                 fresh.append(t)
-        fresh.sort(key=lambda x: x.timeliness_score or 0, reverse=True)
+        fresh.sort(key=lambda x: x.timeliness_score or 0, reverse=True)  # type: ignore[arg-type,return-value]
         return fresh[:limit]
 
     def get_by_id(self, trend_id: str) -> Optional[Trend]:
@@ -366,12 +386,7 @@ class TrendRepository(BaseRepository):
     def delete_expired(self) -> int:
         self._clear_read_caches()
         cutoff = datetime.now() - timedelta(days=self.EXPIRED_DAYS)
-        expired = (
-            self.session.query(Trend)
-            .filter(~Trend.is_archived)
-            .filter(Trend.published_at <= cutoff)
-            .all()
-        )
+        expired = self.session.query(Trend).filter(~Trend.is_archived).filter(Trend.published_at <= cutoff).all()
         for t in expired:
             self.session.delete(t)
         self.session.commit()
@@ -382,12 +397,7 @@ class TrendRepository(BaseRepository):
     def delete_stale(self) -> int:
         self._clear_read_caches()
         cutoff = datetime.now() - timedelta(days=self.ARCHIVE_DAYS)
-        stale = (
-            self.session.query(Trend)
-            .filter(~Trend.is_archived)
-            .filter(Trend.published_at <= cutoff)
-            .all()
-        )
+        stale = self.session.query(Trend).filter(~Trend.is_archived).filter(Trend.published_at <= cutoff).all()
         for t in stale:
             t.is_archived = True  # type: ignore[assignment]
         self.session.commit()
@@ -406,9 +416,12 @@ class TrendRepository(BaseRepository):
         selected = self.session.query(Trend).filter(Trend.is_selected, ~Trend.is_archived).count()
         manual = self.session.query(Trend).filter(Trend.is_manual, ~Trend.is_archived).count()
 
-        cat_counts = self.session.query(Trend.category, func.count(Trend.id)).filter(
-            ~Trend.is_archived
-        ).group_by(Trend.category).all()
+        cat_counts = (
+            self.session.query(Trend.category, func.count(Trend.id))
+            .filter(~Trend.is_archived)
+            .group_by(Trend.category)
+            .all()
+        )
 
         lines = [
             "=== 热点数据库统计 ===",

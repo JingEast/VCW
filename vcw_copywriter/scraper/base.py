@@ -1,6 +1,7 @@
 """
 Provider 基类与 HTTP 客户端
 """
+
 import time
 import urllib.request
 import urllib.parse
@@ -38,20 +39,23 @@ class HttpClient:
         self._proxy_index = (self._proxy_index + 1) % len(self.proxies)
         return proxy
 
-    def fetch_with_retry(self, url: str, timeout: int = 15, max_retries: int = 3,
-                         headers: dict = None) -> Optional[str]:
+    def fetch_with_retry(
+        self, url: str, timeout: int = 15, max_retries: int = 3, headers: dict = None
+    ) -> Optional[str]:
         """发送 HTTP GET 请求（支持代理和重试），返回 UTF-8 文本。"""
         if self._stop_requested:
             return None
 
         try:
-            url.encode('ascii')
+            url.encode("ascii")
         except UnicodeEncodeError:
             parsed = urllib.parse.urlparse(url)
-            safe_path = urllib.parse.quote(parsed.path, safe='/')
-            safe_query = urllib.parse.quote(parsed.query, safe='&=')
-            safe_fragment = urllib.parse.quote(parsed.fragment, safe='')
-            url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, safe_path, parsed.params, safe_query, safe_fragment))
+            safe_path = urllib.parse.quote(parsed.path, safe="/")
+            safe_query = urllib.parse.quote(parsed.query, safe="&=")
+            safe_fragment = urllib.parse.quote(parsed.fragment, safe="")
+            url = urllib.parse.urlunparse(
+                (parsed.scheme, parsed.netloc, safe_path, parsed.params, safe_query, safe_fragment)
+            )
 
         last_error = ""
         req_headers = headers or self.headers
@@ -61,7 +65,7 @@ class HttpClient:
                 req = urllib.request.Request(url, headers=req_headers)
                 proxy = self._get_proxy()
                 if proxy:
-                    proxy_handler = urllib.request.ProxyHandler({'http': proxy, 'https': proxy})
+                    proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
                     opener = urllib.request.build_opener(proxy_handler)
                 else:
                     opener = urllib.request.build_opener()
@@ -79,7 +83,7 @@ class HttpClient:
             except Exception as e:
                 last_error = str(e)
                 if attempt < max_retries - 1:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     print(f"[HttpClient] 请求失败（{e}），{wait}秒后重试...")
                     time.sleep(wait)
                 continue
@@ -100,7 +104,7 @@ class HttpClient:
                 req = urllib.request.Request(url, headers=self.headers)
                 proxy = self._get_proxy()
                 if proxy:
-                    proxy_handler = urllib.request.ProxyHandler({'http': proxy, 'https': proxy})
+                    proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
                     opener = urllib.request.build_opener(proxy_handler)
                 else:
                     opener = urllib.request.build_opener()
@@ -117,7 +121,7 @@ class HttpClient:
             except Exception as e:
                 last_error = str(e)
                 if attempt < max_retries - 1:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     print(f"[HttpClient] 请求失败（{e}），{wait}秒后重试...")
                     time.sleep(wait)
                 continue

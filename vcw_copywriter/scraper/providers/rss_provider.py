@@ -2,6 +2,7 @@
 RSS Provider
 处理 NEWS_SITES 中的 RSS 源 + RSS_SOURCES 独立订阅源。
 """
+
 import re
 import defusedxml.ElementTree as ET
 from datetime import datetime
@@ -32,9 +33,11 @@ class RssProvider(BaseProvider):
             trends = self._fetch_rss(site["url"], site["name"], max_items=15)  # type: ignore[index]
             if site.get("filter_edu"):  # type: ignore[attr-defined]
                 before = len(trends)
-                trends = [t for t in trends if RelevanceCalculator.is_education_related(
-                    t.get("title", "") + " " + t.get("summary", "")
-                )]
+                trends = [
+                    t
+                    for t in trends
+                    if RelevanceCalculator.is_education_related(t.get("title", "") + " " + t.get("summary", ""))
+                ]
                 if before > len(trends):
                     print(f"[RssProvider] {site['name']} 过滤非教育内容: {before} -> {len(trends)}")  # type: ignore[index]
             for t in trends:
@@ -60,15 +63,26 @@ class RssProvider(BaseProvider):
                 return trends
 
             cleaned = rss_content
-            for entity in ["&nbsp;", "&copy;", "&reg;", "&trade;", "&mdash;", "&ndash;", "&hellip;", "&laquo;", "&raquo;"]:
+            for entity in [
+                "&nbsp;",
+                "&copy;",
+                "&reg;",
+                "&trade;",
+                "&mdash;",
+                "&ndash;",
+                "&hellip;",
+                "&laquo;",
+                "&raquo;",
+            ]:
                 cleaned = cleaned.replace(entity, "")
-            cleaned = re.sub(r'&#\d+;', '', cleaned)
-            cleaned = re.sub(r'&#[xX][0-9a-fA-F]+;', '', cleaned)
+            cleaned = re.sub(r"&#\d+;", "", cleaned)
+            cleaned = re.sub(r"&#[xX][0-9a-fA-F]+;", "", cleaned)
 
             try:
                 root = ET.fromstring(cleaned)
             except ET.ParseError:
-                return self._extract_from_html(rss_content, source_name, rss_url)  # nosec B112: fallback to HTML extraction
+                # nosec B112: fallback to HTML extraction
+                return self._extract_from_html(rss_content, source_name, rss_url)
 
             items = []
             ns = {"atom": "http://www.w3.org/2005/Atom"}
@@ -88,7 +102,7 @@ class RssProvider(BaseProvider):
                 if not title and title_elem is not None:
                     title = "".join(title_elem.itertext())
                 if rss_url and "mingpao.com" in rss_url:
-                    title = title.rstrip(']')
+                    title = title.rstrip("]")
 
                 desc_elem = item.find("description")
                 if desc_elem is None:
@@ -128,17 +142,19 @@ class RssProvider(BaseProvider):
                         if inferred:
                             published_at = inferred.strftime("%Y-%m-%d %H:%M")
 
-                    trends.append({
-                        "title": title.strip(),
-                        "summary": summary[:200],
-                        "source": item_source,
-                        "url": url,
-                        "published_at": published_at,
-                        "fetched_at": datetime.now().isoformat(),
-                        "keyword": "",
-                        "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
-                        "_time_source": time_source,
-                    })
+                    trends.append(
+                        {
+                            "title": title.strip(),
+                            "summary": summary[:200],
+                            "source": item_source,
+                            "url": url,
+                            "published_at": published_at,
+                            "fetched_at": datetime.now().isoformat(),
+                            "keyword": "",
+                            "relevance_score": RelevanceCalculator.calc_relevance(title, summary),
+                            "_time_source": time_source,
+                        }
+                    )
         except Exception as e:
             print(f"[RssProvider] RSS 抓取失败 {rss_url}: {e}")
 
@@ -153,9 +169,11 @@ class RssProvider(BaseProvider):
                 r = self._fetch_rss(rss["url"], rss["name"], max_items=5)
                 if rss.get("filter_edu"):
                     before = len(r)
-                    r = [t for t in r if RelevanceCalculator.is_education_related(
-                        t.get("title", "") + " " + t.get("summary", "")
-                    )]
+                    r = [
+                        t
+                        for t in r
+                        if RelevanceCalculator.is_education_related(t.get("title", "") + " " + t.get("summary", ""))
+                    ]
                     if before > len(r):
                         print(f"[RssProvider] {rss['name']} 过滤非教育内容: {before} -> {len(r)}")
                 for t in r:
@@ -178,7 +196,7 @@ class RssProvider(BaseProvider):
         try:
             patterns = [
                 r'<a[^>]*href="([^"]*)"[^>]*>([^<]{10,80})</a>',
-                r'<h[23][^>]*>(.*?)</h[23]>',
+                r"<h[23][^>]*>(.*?)</h[23]>",
                 r'<div[^>]*class="[^"]*title[^"]*"[^>]*>(.*?)</div>',
             ]
 
@@ -188,28 +206,30 @@ class RssProvider(BaseProvider):
                 for match in matches:
                     if isinstance(match, tuple):
                         url, title = match
-                        url = __import__('urllib.parse', fromlist=['urljoin']).urljoin(base_url, url)
+                        url = __import__("urllib.parse", fromlist=["urljoin"]).urljoin(base_url, url)
                     else:
                         title = match
                         url = base_url
 
-                    title = re.sub(r'<[^>]+>', '', title).strip()
+                    title = re.sub(r"<[^>]+>", "", title).strip()
                     if title and 10 < len(title) < 100 and title not in seen:
                         seen.add(title)
                         inferred = TimeParser.infer_date_from_text(title)
                         published_at = inferred.strftime("%Y-%m-%d %H:%M") if inferred else ""
 
-                        trends.append({
-                            "title": title,
-                            "summary": "",
-                            "source": source_name,
-                            "url": url,
-                            "published_at": published_at,
-                            "fetched_at": datetime.now().isoformat(),
-                            "keyword": "",
-                            "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
-                            "_time_source": "title_inference",
-                        })
+                        trends.append(
+                            {
+                                "title": title,
+                                "summary": "",
+                                "source": source_name,
+                                "url": url,
+                                "published_at": published_at,
+                                "fetched_at": datetime.now().isoformat(),
+                                "keyword": "",
+                                "relevance_score": RelevanceCalculator.calc_relevance(title, ""),
+                                "_time_source": "title_inference",
+                            }
+                        )
 
                         if len(trends) >= 10:
                             break

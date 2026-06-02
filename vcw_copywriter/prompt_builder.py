@@ -9,6 +9,7 @@
 如需直接使用 Registry API：
     from vcw_copywriter.prompts import PromptComposer, load_default_registry
 """
+
 from typing import TYPE_CHECKING, Tuple
 
 from .memory import MemoryBank
@@ -22,10 +23,21 @@ if TYPE_CHECKING:
 # 这些变量在模块加载时从 defaults 导入，确保旧代码直接引用时行为不变。
 from .prompts.defaults import (
     _SYSTEM_PROMPT_V1 as SYSTEM_PROMPT_TEMPLATE,
-    _SAMPLE_1, _SAMPLE_2, _SAMPLE_3, _SAMPLE_4, _SAMPLE_5,
+    _SAMPLE_1,
+    _SAMPLE_2,
+    _SAMPLE_3,
+    _SAMPLE_4,
+    _SAMPLE_5,
 )
 
-__all__ = ["SYSTEM_PROMPT_TEMPLATE", "SAMPLE_COPYWRITING", "build_user_prompt", "build_full_prompts", "get_registry", "reload_prompts"]
+__all__ = [
+    "SYSTEM_PROMPT_TEMPLATE",
+    "SAMPLE_COPYWRITING",
+    "build_user_prompt",
+    "build_full_prompts",
+    "get_registry",
+    "reload_prompts",
+]
 
 SAMPLE_COPYWRITING = {
     "样本一": _SAMPLE_1,
@@ -47,6 +59,7 @@ def _get_composer() -> "PromptComposer":
     global _composer
     if _composer is None:
         from .prompts import PromptComposer, load_default_registry
+
         registry = load_default_registry()
         _composer = PromptComposer(registry, mode="legacy")
     return _composer
@@ -135,5 +148,6 @@ def reload_prompts() -> None:
     """
     global _composer
     from .prompts import PromptComposer, load_default_registry
+
     registry = load_default_registry()
     _composer = PromptComposer(registry, mode="legacy")

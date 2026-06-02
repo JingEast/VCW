@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime
 from app.core.datetime_utils import utc_now
 
 from celery_app import app
@@ -47,8 +46,11 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
         _update_job_status(task_id, status="running", started_at=utc_now())
 
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.info("[trace_id=%s] generate_copy_task start | task_id=%s batch_id=%s angle=%s", trace_id, task_id, batch_id, angle)
+    logger.info(
+        "[trace_id=%s] generate_copy_task start | task_id=%s batch_id=%s angle=%s", trace_id, task_id, batch_id, angle
+    )
 
     _record_celery_metric("generate_copy_task", "started")
 
@@ -70,10 +72,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
             logger.error("[trace_id=%s] generate_copy_task failed | task_id=%s error=%s", trace_id, task_id, exc)
             _record_celery_metric("generate_copy_task", "failed")
             if batch_id:
-                _update_batch_progress(
-                    batch_id, task_id, "failed",
-                    {"error": str(exc), "angle": angle}
-                )
+                _update_batch_progress(batch_id, task_id, "failed", {"error": str(exc), "angle": angle})
             _store_dead_letter(req_data, str(exc), task_id, trace_id)
             raise
     except Exception as exc:
@@ -83,10 +82,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
             logger.error("[trace_id=%s] generate_copy_task failed | task_id=%s error=%s", trace_id, task_id, exc)
             _record_celery_metric("generate_copy_task", "failed")
             if batch_id:
-                _update_batch_progress(
-                    batch_id, task_id, "failed",
-                    {"error": str(exc), "angle": angle}
-                )
+                _update_batch_progress(batch_id, task_id, "failed", {"error": str(exc), "angle": angle})
             _store_dead_letter(req_data, str(exc), task_id, trace_id)
             raise
 
@@ -102,6 +98,7 @@ def generate_batch_task(self, req_data: dict, angles: list, batch_id: str) -> di
     trace_id = _get_task_trace_id(self)
 
     import logging
+
     logger = logging.getLogger(__name__)
     logger.info("[trace_id=%s] generate_batch_task start | batch_id=%s angles=%d", trace_id, batch_id, len(angles))
     _record_celery_metric("generate_batch_task", "started")
@@ -165,12 +162,14 @@ def dead_letter_task(self) -> dict:
 def health_check_task(self) -> dict:
     """健康检查任务。"""
     from celery_app import health_check
+
     return health_check()
 
 
 # ------------------------------------------------------------------------------
 # 内部辅助函数
 # ------------------------------------------------------------------------------
+
 
 def _get_task_trace_id(task) -> str:
     """从 Celery task request 中提取 trace_id；不存在时生成新的。"""
@@ -264,21 +263,12 @@ def _update_batch_progress(batch_id: str, subtask_id: str, status: str, data: di
 
     session = get_session()
     try:
-        parent = (
-            session.query(GenerationJob)
-            .filter(GenerationJob.id == batch_id)
-            .with_for_update()
-            .first()
-        )
+        parent = session.query(GenerationJob).filter(GenerationJob.id == batch_id).with_for_update().first()
         if not parent:
             return
 
         # 更新子任务
-        child = (
-            session.query(GenerationJob)
-            .filter(GenerationJob.id == subtask_id)
-            .first()
-        )
+        child = session.query(GenerationJob).filter(GenerationJob.id == subtask_id).first()
         if child:
             child.status = status
             if status == "success":
@@ -290,11 +280,7 @@ def _update_batch_progress(batch_id: str, subtask_id: str, status: str, data: di
         # 重新聚合（使用 COUNT 聚合查询，避免加载所有子任务对象）
         from sqlalchemy import func
 
-        total = (
-            session.query(func.count(GenerationJob.id))
-            .filter(GenerationJob.parent_batch_id == batch_id)
-            .scalar()
-        )
+        total = session.query(func.count(GenerationJob.id)).filter(GenerationJob.parent_batch_id == batch_id).scalar()
         if total == 0:
             return
 

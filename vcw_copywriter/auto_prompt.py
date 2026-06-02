@@ -8,6 +8,7 @@
 本模块为兼容层：对外接口 100% 保持不变。内部 `build_enhanced_system_prompt`
 已适配 PromptComposer，支持从 Registry 获取增强内容。
 """
+
 import re
 from datetime import datetime
 from typing import Dict, List
@@ -21,9 +22,39 @@ class AutoPromptBuilder:
     SCENE_CONFIG = {
         "香港中小学插班规划": {
             "strong": ["插班", "自行分配", "统一派位", "学位申请", "叩门", "叩門", "候補", "候补"],
-            "medium": ["中小学", "小学", "中学", "派位", "学位", "学额", "学額", "幼稚园", "幼儿园", "升中", "升小", "小一", "中一"],
+            "medium": [
+                "中小学",
+                "小学",
+                "中学",
+                "派位",
+                "学位",
+                "学额",
+                "学額",
+                "幼稚园",
+                "幼儿园",
+                "升中",
+                "升小",
+                "小一",
+                "中一",
+            ],
             "weak": ["学校申请", "入学试", "跨境学童", "新来港", "band1", "band2", "band3", "直资", "资助", "官立"],
-            "repel": ["jupas", "dse备考", "毕业", "last day", "放榜后", "大学", "港八大", "港三大", "志愿填报", "选科", "m1", "m2", "pastpaper", "真题", "模考"],
+            "repel": [
+                "jupas",
+                "dse备考",
+                "毕业",
+                "last day",
+                "放榜后",
+                "大学",
+                "港八大",
+                "港三大",
+                "志愿填报",
+                "选科",
+                "m1",
+                "m2",
+                "pastpaper",
+                "真题",
+                "模考",
+            ],
             "audience": "港宝家长（插班阶段）",
             "policy": "香港中小学插班/派位政策",
             "hidden": "香港直资/私立学校插班的弹性收生通道；国际课程衔接路径",
@@ -33,9 +64,51 @@ class AutoPromptBuilder:
         },
         "DSE笔试备考": {
             "strong": ["dse", "备考", "pastpaper", "past paper", "真题", "真題", "模考", "模擬試卷", "模拟试卷"],
-            "medium": ["笔试", "筆試", "公民科", "公民與社會發展", "m1", "m2", "數延", "校本評核", "sba", "口试", "口语", "speaking", "listening", "reading", "writing"],
-            "weak": ["考试", "考試", "复习", "複習", "冲刺", "衝刺", "技巧", "答題技巧", "评分准则", "評分準則", "考点", "考點", "错题", "錯題"],
-            "repel": ["插班", "自行分配", "统一派位", "jupas", "志愿填报", "大学申请", "中小学", "小学", "中学", "学位"],
+            "medium": [
+                "笔试",
+                "筆試",
+                "公民科",
+                "公民與社會發展",
+                "m1",
+                "m2",
+                "數延",
+                "校本評核",
+                "sba",
+                "口试",
+                "口语",
+                "speaking",
+                "listening",
+                "reading",
+                "writing",
+            ],
+            "weak": [
+                "考试",
+                "考試",
+                "复习",
+                "複習",
+                "冲刺",
+                "衝刺",
+                "技巧",
+                "答題技巧",
+                "评分准则",
+                "評分準則",
+                "考点",
+                "考點",
+                "错题",
+                "錯題",
+            ],
+            "repel": [
+                "插班",
+                "自行分配",
+                "统一派位",
+                "jupas",
+                "志愿填报",
+                "大学申请",
+                "中小学",
+                "小学",
+                "中学",
+                "学位",
+            ],
             "audience": "DSE考生",
             "policy": "DSE考试安排及评分政策",
             "hidden": "DSE各科的夺分技巧；非官方公布但历年有效的答题策略",
@@ -44,10 +117,56 @@ class AutoPromptBuilder:
             "sample": "样本五",
         },
         "港籍升学规划": {
-            "strong": ["jupas", "志愿填报", "志願填報", "联招", "聯招", "港八大", "港三大", "放榜", "放榜后", "改选", "改選", "last day", "毕业", "畢業"],
-            "medium": ["大学", "大學", "录取", "錄取", "分数线", "分數線", "港大", "港中文", "港科大", "港理工", "港城大", "浸会", "教大", "岭大", "专业", "專業", "学士", "學士"],
+            "strong": [
+                "jupas",
+                "志愿填报",
+                "志願填報",
+                "联招",
+                "聯招",
+                "港八大",
+                "港三大",
+                "放榜",
+                "放榜后",
+                "改选",
+                "改選",
+                "last day",
+                "毕业",
+                "畢業",
+            ],
+            "medium": [
+                "大学",
+                "大學",
+                "录取",
+                "錄取",
+                "分数线",
+                "分數線",
+                "港大",
+                "港中文",
+                "港科大",
+                "港理工",
+                "港城大",
+                "浸会",
+                "教大",
+                "岭大",
+                "专业",
+                "專業",
+                "学士",
+                "學士",
+            ],
             "weak": ["升学", "升學", "规划", "規劃", "副学士", "副學士", "asso", "e-app", "非联招"],
-            "repel": ["插班", "自行分配", "统一派位", "中小学", "小学", "中学", "学位", "叩门", "pastpaper", "真题", "模考"],
+            "repel": [
+                "插班",
+                "自行分配",
+                "统一派位",
+                "中小学",
+                "小学",
+                "中学",
+                "学位",
+                "叩门",
+                "pastpaper",
+                "真题",
+                "模考",
+            ],
             "audience": "中六毕业生家长/DSE考生家长",
             "policy": "JUPAS联招及港校录取政策",
             "hidden": "JUPAS改选策略中的隐藏技巧；Band A/B/C的最优组合策略；非联招申请通道",
@@ -57,7 +176,17 @@ class AutoPromptBuilder:
         },
         "港澳台联考/内地升学": {
             "strong": ["联考", "聯考", "全国联招", "全國聯招", "港澳台联考", "港澳子弟学校", "暨南", "华侨", "華僑"],
-            "medium": ["内地高校", "內地高校", "内地985", "内地211", "保送", "独立招生", "獨立招生", "回乡证", "回鄉證"],
+            "medium": [
+                "内地高校",
+                "內地高校",
+                "内地985",
+                "内地211",
+                "保送",
+                "独立招生",
+                "獨立招生",
+                "回乡证",
+                "回鄉證",
+            ],
             "weak": ["内地", "內地", "大陆", "985", "211", "深圳大学", "中山大学", "厦门大学", "武汉大学"],
             "repel": ["dse", "港校", "jupas", "插班", "pastpaper", "雅思", "托福"],
             "audience": "计划参加港澳台联考的港宝家长",
@@ -89,6 +218,7 @@ class AutoPromptBuilder:
         """延迟初始化 PromptComposer"""
         if self._composer is None:
             from .prompts import PromptComposer, load_default_registry
+
             registry = load_default_registry()
             self._composer = PromptComposer(registry, mode="legacy")
         return self._composer
@@ -165,11 +295,11 @@ class AutoPromptBuilder:
     def _extract_topic(self, title: str) -> str:
         """从标题提取主题，保留年份和政策关键词"""
         # 清理来源标识但不清理年份
-        clean = re.sub(r'\s*[-|]\s*.*?网\s*$', '', title)
-        clean = re.sub(r'\s*[-|]\s*.*?社\s*$', '', clean)
-        clean = re.sub(r'\s*[-|]\s*.*?报\s*$', '', clean)
+        clean = re.sub(r"\s*[-|]\s*.*?网\s*$", "", title)
+        clean = re.sub(r"\s*[-|]\s*.*?社\s*$", "", clean)
+        clean = re.sub(r"\s*[-|]\s*.*?报\s*$", "", clean)
         # 清理末尾的无关标签
-        clean = re.sub(r'\s*#.*$', '', clean)
+        clean = re.sub(r"\s*#.*$", "", clean)
         return clean[:50] or "港籍升学热点话题"
 
     def _infer_audience(self, title: str, summary: str) -> str:
@@ -192,7 +322,7 @@ class AutoPromptBuilder:
         """从文本中提取所有年份信息"""
         years = []
         # 匹配 "2025年" 或 "2025"
-        year_matches = re.findall(r'(20\d{2})\s*年?', text)
+        year_matches = re.findall(r"(20\d{2})\s*年?", text)
         for y in set(year_matches):
             years.append(f"{y}年")
         return years
@@ -210,7 +340,7 @@ class AutoPromptBuilder:
         text = title + " " + summary
 
         # 提取具体数字信息
-        numbers = re.findall(r'20\d{2}年?\s*[，,]?\s*[^。\n]{0,30}\d+[\.,]?\d*\s*(?:人|万|%)', text)
+        numbers = re.findall(r"20\d{2}年?\s*[，,]?\s*[^。\n]{0,30}\d+[\.,]?\d*\s*(?:人|万|%)", text)
 
         # 提取年份信息
         years = self._extract_year_info(text)
@@ -233,7 +363,7 @@ class AutoPromptBuilder:
 
         # 如果有明确的年份但比较旧，提示更新
         for y in years:
-            match = re.search(r'\d{4}', y)
+            match = re.search(r"\d{4}", y)
             if not match:
                 continue
             year_num = int(match.group())
@@ -265,7 +395,7 @@ class AutoPromptBuilder:
             policies.append(f"DSE课程改革/公民科政策（{current_year}年最新安排）")
 
         # 时间校验提示
-        years_in_text = re.findall(r'20\d{2}', text)
+        years_in_text = re.findall(r"20\d{2}", text)
         for y in years_in_text:
             y_int = int(y)
             if y_int < current_year - 1:
@@ -341,18 +471,22 @@ class AutoPromptBuilder:
             prompts.append(f"建议以'故事型'角度切入：{angles['故事']}")
         elif any(kw in text for kw in ["政策", "新规", "改革", "调整", "公布", "最新", "改变"]):
             prompts.append(f"建议以'政策解读型'角度切入：{angles['政策']}")
-        elif any(kw in text for kw in ["件事", "清单", "步骤", "流程", "攻略", "指南", "last day", "必须", "一定", "要"]):
+        elif any(
+            kw in text for kw in ["件事", "清单", "步骤", "流程", "攻略", "指南", "last day", "必须", "一定", "要"]
+        ):
             prompts.append(f"建议以'清单/指南型'角度切入：{angles['清单']}")
         else:
             prompts.append("请生成3个不同角度的变体：焦虑型、数据型、政策解读型")
 
         # 时效性提醒
         current_year = datetime.now().year
-        years_in_text = re.findall(r'20\d{2}', text)
+        years_in_text = re.findall(r"20\d{2}", text)
         has_recent_year = any(int(y) >= current_year - 1 for y in years_in_text)
 
         if not has_recent_year:
-            prompts.append(f"⚠️ 重要：该热点未明确提及{current_year}或{current_year + 1}年的信息，生成时必须使用最新数据，禁止使用过时的年份和旧政策")
+            prompts.append(
+                f"⚠️ 重要：该热点未明确提及{current_year}或{current_year + 1}年的信息，生成时必须使用最新数据，禁止使用过时的年份和旧政策"
+            )
 
         # 来源可信度提示
         if any(kw in text.lower() for kw in ["考评局", "教育局", "edb", "hkeaa", "官方"]):
@@ -379,7 +513,7 @@ class AutoPromptBuilder:
         # 这里保持与原来完全一致的替换逻辑
         enhanced = base_prompt.replace(
             "## 爆款规律总结（必须融入生成）",
-            f"## 爆款规律总结（必须融入生成）\n\n{viral_text}\n\n---\n\n## 爆款规律总结（必须融入生成）"
+            f"## 爆款规律总结（必须融入生成）\n\n{viral_text}\n\n---\n\n## 爆款规律总结（必须融入生成）",
         )
         return enhanced
 
