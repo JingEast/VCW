@@ -180,6 +180,98 @@ class MetricsCollector:
         idx = max(0, min(idx, len(sorted_data) - 1))
         return sorted_data[idx]
 
+    # ------------------------------------------------------------------
+    # Prometheus 格式导出（零外部依赖）
+    # ------------------------------------------------------------------
+
+    def to_prometheus(self) -> str:
+        """导出为 Prometheus / OpenMetrics 文本格式。
+
+        所有时间指标统一转换为秒（Prometheus 惯例）。
+        """
+        lines: list[str] = []
+
+        with self._lock:
+            # ---- HTTP Requests Counter ----
+            lines.append("# HELP vcw_http_requests_total Total HTTP requests")
+            lines.append("# TYPE vcw_http_requests_total counter")
+            for key, count in self._http_requests.items():
+                method, path, status = key.split(":", 2)
+                safe_path = self._escape_label(path)
+                lines.append(
+                    f'vcw_http_requests_total{{method="{method}",path="{safe_path}",status="{status}"}} {count}'
+                )
+
+            # ---- HTTP Latency Summary ----
+            lines.append("# HELP vcw_http_request_duration_seconds HTTP request latency")
+            lines.append("# TYPE vcw_http_request_duration_seconds summary")
+            for path, latencies in self._http_latency.items():
+                if not latencies:
+                    continue
+                safe_path = self._escape_label(path)
+                total_s = sum(latencies) / 1000.0
+                lines.append(
+                    f'vcw_http_request_duration_seconds_count{{path="{safe_path}"}} {len(latencies)}'
+                )
+                lines.append(
+                    f'vcw_http_request_duration_seconds_sum{{path="{safe_path}"}} {total_s:.6f}'
+                )
+                p99 = self._percentile(latencies, 0.99) / 1000.0
+                lines.append(
+                    f'vcw_http_request_duration_seconds{{path="{safe_path}",quantile="0.99"}} {p99:.6f}'
+                )
+
+            # ---- LLM Calls Counter ----
+            lines.append("# HELP vcw_llm_calls_total Total LLM calls")
+            lines.append("# TYPE vcw_llm_calls_total counter")
+            for key, count in self._llm_calls.items():
+                provider, model, status = key.split(":", 2)
+                lines.append(
+                    f'vcw_llm_calls_total{{provider="{provider}",model="{model}",status="{status}"}} {count}'
+                )
+
+            # ---- LLM Latency Summary ----
+            lines.append("# HELP vcw_llm_request_duration_seconds LLM request latency")
+            lines.append("# TYPE vcw_llm_request_duration_seconds summary")
+            for provider, latencies in self._llm_latency.items():
+                if not latencies:
+                    continue
+                total_s = sum(latencies) / 1000.0
+                lines.append(
+                    f'vcw_llm_request_duration_seconds_count{{provider="{provider}"}} {len(latencies)}'
+                )
+                lines.append(
+                    f'vcw_llm_request_duration_seconds_sum{{provider="{provider}"}} {total_s:.6f}'
+                )
+                p99 = self._percentile(latencies, 0.99) / 1000.0
+                lines.append(
+                    f'vcw_llm_request_duration_seconds{{provider="{provider}",quantile="0.99"}} {p99:.6f}'
+                )
+
+            # ---- Celery Tasks Counter ----
+            lines.append("# HELP vcw_celery_tasks_total Total Celery tasks")
+            lines.append("# TYPE vcw_celery_tasks_total counter")
+            for key, count in self._celery_tasks.items():
+                task_name, status = key.rsplit(":", 1)
+                lines.append(
+                    f'vcw_celery_tasks_total{{task_name="{task_name}",status="{status}"}} {count}'
+                )
+
+            # ---- Errors Counter ----
+            lines.append("# HELP vcw_errors_total Total errors")
+            lines.append("# TYPE vcw_errors_total counter")
+            for code, count in self._errors.items():
+                lines.append(
+                    f'vcw_errors_total{{code="{code}"}} {count}'
+                )
+
+        return "\n".join(lines) + "\n"
+
+    @staticmethod
+    def _escape_label(value: str) -> str:
+        """转义 label 值中的特殊字符（反斜杠和双引号）。"""
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
 
 # 全局单例（供无请求上下文场景使用，如 Celery worker）
 _global_collector: Optional[MetricsCollector] = None

@@ -93,6 +93,20 @@ def create_app() -> Flask:
         }), 200 if celery_status["status"] == "ok" else 503
 
     # ============================================================
+    # Prometheus 指标端点
+    # ============================================================
+    @app.route("/metrics")
+    def metrics_endpoint():
+        collector = getattr(app, "metrics", None)
+        if collector is None:
+            return "# no metrics collector\n", 200, {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"}
+        return (
+            collector.to_prometheus(),
+            200,
+            {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"},
+        )
+
+    # ============================================================
     # 兼容处理：裸端点名与 request.endpoint 修补
     # 确保模板中 url_for('index')、request.endpoint == 'index' 等继续有效
     # ============================================================

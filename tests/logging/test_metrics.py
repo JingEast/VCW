@@ -133,6 +133,98 @@ class TestGlobalCollector:
         assert get_global_collector() is new_collector
 
 
+class TestPrometheusFormat:
+    """验证 Prometheus 文本格式导出。"""
+
+    def test_prometheus_output_contains_http_counter(self):
+        """Prometheus 输出应包含 HTTP 请求计数器。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        collector.record_http_request("GET", "/", 200, 5.0)
+        output = collector.to_prometheus()
+
+        assert '# HELP vcw_http_requests_total' in output
+        assert '# TYPE vcw_http_requests_total counter' in output
+        assert 'vcw_http_requests_total{method="GET",path="/",status="200"} 1' in output
+
+    def test_prometheus_output_contains_http_latency_summary(self):
+        """Prometheus 输出应包含 HTTP 延迟 summary。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        for i in range(10):
+            collector.record_http_request("GET", "/", 200, float(i * 10))
+        output = collector.to_prometheus()
+
+        assert '# HELP vcw_http_request_duration_seconds' in output
+        assert '# TYPE vcw_http_request_duration_seconds summary' in output
+        assert 'vcw_http_request_duration_seconds_count{path="/"} 10' in output
+        assert 'vcw_http_request_duration_seconds_sum{path="/"}' in output
+        assert 'quantile="0.99"' in output
+
+    def test_prometheus_output_contains_llm_counter(self):
+        """Prometheus 输出应包含 LLM 调用计数器。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        collector.record_llm_call("openai", "gpt-4o", "success", 1200.0)
+        output = collector.to_prometheus()
+
+        assert 'vcw_llm_calls_total{provider="openai",model="gpt-4o",status="success"} 1' in output
+
+    def test_prometheus_output_contains_celery_counter(self):
+        """Prometheus 输出应包含 Celery 任务计数器。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        collector.record_celery_task("echo_task", "success")
+        output = collector.to_prometheus()
+
+        assert 'vcw_celery_tasks_total{task_name="echo_task",status="success"} 1' in output
+
+    def test_prometheus_output_contains_error_counter(self):
+        """Prometheus 输出应包含错误计数器。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        collector.record_error("NOT_FOUND")
+        output = collector.to_prometheus()
+
+        assert 'vcw_errors_total{code="NOT_FOUND"} 1' in output
+
+    def test_prometheus_latency_converted_to_seconds(self):
+        """延迟数据应从毫秒转换为秒。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        collector.record_http_request("GET", "/", 200, 500.0)
+        output = collector.to_prometheus()
+
+        # 500ms = 0.5s，sum 应为 0.5
+        assert "0.500000" in output or "0.5" in output
+
+    def test_prometheus_label_escaping(self):
+        """Label 值中的特殊字符应被正确转义。"""
+        from app.core.metrics import MetricsCollector
+
+        collector = MetricsCollector()
+        collector.record_http_request("GET", '/path"with"quotes', 200, 1.0)
+        output = collector.to_prometheus()
+
+        assert 'path="/path\\"with\\"quotes"' in output
+
+    def test_metrics_endpoint_returns_prometheus(self, client, app):
+        """/metrics 端点应返回 Prometheus 格式数据。"""
+        client.get("/")
+        response = client.get("/metrics")
+
+        assert response.status_code == 200
+        assert "text/plain" in response.content_type
+        body = response.data.decode("utf-8")
+        assert "vcw_http_requests_total" in body
+
+
 class TestHttpMetricsMiddleware:
     """验证 HTTP 指标中间件端到端行为。"""
 
