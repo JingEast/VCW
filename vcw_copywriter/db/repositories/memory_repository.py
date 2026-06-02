@@ -39,10 +39,13 @@ class MemoryRepository(BaseRepository):
         return entries
 
     def get_entries_by_tags(self, tags: List[str], limit: int = 10) -> List[MemoryEntry]:
-        # 简单实现：查询所有然后过滤（PostgreSQL 可用 JSONB @> 优化）
+        # 候选集策略：先取最近 5*limit 条，再在 Python 中过滤
+        # 避免全表加载（当 memory_entries 很大时）
+        _CANDIDATE_MULT = 5
+        candidate_limit = max(limit * _CANDIDATE_MULT, 50)
         entries = self.session.query(MemoryEntry).order_by(
             MemoryEntry.created_at.desc()
-        ).all()
+        ).limit(candidate_limit).all()
         tag_set = set(tags)
         matched = [e for e in entries if tag_set & set(e.issue_tags or [])]
         return matched[:limit]

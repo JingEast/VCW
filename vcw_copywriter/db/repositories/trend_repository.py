@@ -127,6 +127,37 @@ class TrendRepository(BaseRepository):
             url = re.sub(r'[?&](utm_|fbclid|gclid|ref|source)=([^&]*)', '', url)
             return url.rstrip('?')
 
+        # 预加载现有数据，避免 N+1 查询
+        all_urls = []
+        all_titles = []
+        for st in scraper_trends:
+            all_urls.append(_normalize_url(st.get("url", "")))
+            all_titles.append(st.get("title", ""))
+
+        existing_by_url: Dict[str, Trend] = {}
+        existing_by_title: Dict[str, Trend] = {}
+        if all_urls:
+            # URL 匹配使用 like，无法直接用 IN；改为加载所有非归档趋势的 URL
+            url_candidates = (
+                self.session.query(Trend)
+                .filter(~Trend.is_archived)
+                .filter(Trend.url.isnot(None))
+                .all()
+            )
+            for t in url_candidates:
+                if t.url:
+                    existing_by_url[t.url] = t
+
+        if all_titles:
+            title_candidates = (
+                self.session.query(Trend)
+                .filter(~Trend.is_archived)
+                .filter(Trend.title.in_(all_titles))
+                .all()
+            )
+            for t in title_candidates:
+                existing_by_title[t.title] = t
+
         for st in scraper_trends:
             st_url = _normalize_url(st.get("url", ""))
             st_title = st.get("title", "")
@@ -136,39 +167,54 @@ class TrendRepository(BaseRepository):
                 skipped += 1
                 continue
 
-            existing_by_url = None
-            existing_by_title = None
+            matched = None
             if st_url:
-                existing_by_url = self.session.query(Trend).filter(
-                    Trend.url.like(f"%{st_url}%")
-                ).first()
-            if not existing_by_url:
-                existing_by_title = self.session.query(Trend).filter_by(title=st_title).first()
+                # 精确 URL 匹配（归一化后）
+                for url_key, trend in existing_by_url.items():
+                    if st_url in url_key or url_key in st_url:
+                        matched = trend
+                        break
 
-            if existing_by_url:
-                existing_by_url.title = st_title
-                existing_by_url.summary = st.get("summary", "")
-                existing_by_url.source = st.get("source", "")
-                existing_by_url.relevance_score = st.get("relevance_score", 50)
-                existing_by_url.published_at = dt  # type: ignore[assignment]
-                existing_by_url.time_source = st.get("_time_source", "")
-                existing_by_url.fetched_at = self._parse_date(st.get("fetched_at", ""))  # type: ignore[assignment]
-                existing_by_url.keyword = st.get("keyword", "")
-                existing_by_url.category = st.get("category", "未分类")
-                updated += 1
-            elif existing_by_title:
-                skipped += 1
+            if not matched and st_title in existing_by_title:
+                matched = existing_by_title[st_title]
+
+            if matched:
+                # 如果 matched 是通过 title 找到的，且 URL 不同，视为更新
+                if matched.title == st_title:
+                    matched.title = st_title
+                    matched.summary = st.get("summary", "")
+                    matched.source = st.get("source", "")
+                    matched.relevance_score = st.get("relevance_score", 50)
+                    matched.published_at = dt  # type: ignore[assignment]
+                    matched.time_source = st.get("_time_source", "")
+                    matched.fetched_at = self._parse_date(st.get("fetched_at", ""))  # type: ignore[assignment]
+                    matched.keyword = st.get("keyword", "")
+                    matched.category = st.get("category", "未分类")
+                    updated += 1
+                else:
+                    skipped += 1
             else:
-                self.add(
-                    title=st_title, summary=st.get("summary", ""),
-                    source=st.get("source", ""), url=st.get("url", ""),
-                    relevance_score=st.get("relevance_score", 50),
-                    published_at=published_at,
-                    _time_source=st.get("_time_source", ""),
-                    fetched_at=st.get("fetched_at", ""),
-                    keyword=st.get("keyword", ""),
+                new_trend = Trend(
+                    id=str(__import__("uuid").uuid4())[:8],
+                    title=st_title,
+                    summary=st.get("summary", ""),
+                    source=st.get("source", ""),
+                    url=st.get("url", ""),
                     category=st.get("category", "未分类"),
+                    tags=st.get("tags") or [],
+                    relevance_score=st.get("relevance_score", 50),
+                    click_count=0,
+                    is_manual=False,
+                    published_at=dt,
+                    time_source=st.get("_time_source", ""),
+                    fetched_at=self._parse_date(st.get("fetched_at", "")),
+                    keyword=st.get("keyword", ""),
                 )
+                self.session.add(new_trend)
+                # 加入映射，防止后续重复插入相同 URL/title
+                if new_trend.url:
+                    existing_by_url[new_trend.url] = new_trend
+                existing_by_title[new_trend.title] = new_trend
                 added += 1
 
         self.session.commit()
@@ -206,31 +252,50 @@ class TrendRepository(BaseRepository):
                 stale_cutoff = now - timedelta(days=self.ARCHIVE_DAYS)
                 query = query.filter(Trend.published_at <= stale_cutoff)
 
-        trends = query.all()
+        total = query.count()
 
-        # 计算运行时字段
+        if sort_by == "time":
+            query = query.order_by(
+                Trend.published_at.desc().nullslast(),  # type: ignore[union-attr]
+                Trend.fetched_at.desc().nullslast(),    # type: ignore[union-attr]
+            )
+            trends = query.offset(offset).limit(limit).all()
+            return trends, total
+
+        if sort_by == "relevance":
+            query = query.order_by(Trend.relevance_score.desc().nullslast())  # type: ignore[union-attr]
+            trends = query.offset(offset).limit(limit).all()
+            return trends, total
+
+        # composite sort: 运行时计算，限制候选集大小避免内存膨胀
+        _CANDIDATE_LIMIT = 5000
+        trends = query.order_by(
+            Trend.published_at.desc().nullslast(),  # type: ignore[union-attr]
+        ).limit(_CANDIDATE_LIMIT).all()
+
         for t in trends:
             t.timeliness_score = self._calc_timeliness_score(t)  # type: ignore[assignment]
             if t.is_manual:
                 t.timeliness_score = max(t.timeliness_score or 0, 85)  # type: ignore[arg-type]
             t.composite_score = (t.relevance_score or 0) * 0.55 + (t.timeliness_score or 0) * 0.45  # type: ignore[assignment]
 
-        if sort_by == "time":
-            trends.sort(key=lambda x: x.published_at or x.fetched_at or datetime.min, reverse=True)
-        elif sort_by == "relevance":
-            trends.sort(key=lambda x: x.relevance_score or 0, reverse=True)
-        else:
-            def _sort_key(t):
-                score = t.composite_score or 0
-                time_bonus = 5 if (t.time_source in ("rss", "google_news", "article_page", "url_date")) else 0
-                return score + time_bonus
-            trends.sort(key=_sort_key, reverse=True)
+        def _sort_key(t):
+            score = t.composite_score or 0
+            time_bonus = 5 if (t.time_source in ("rss", "google_news", "article_page", "url_date")) else 0
+            return score + time_bonus
 
-        total = len(trends)
+        trends.sort(key=_sort_key, reverse=True)
         return trends[offset:offset + limit], total
 
     def get_recommended(self, limit: int = 10) -> List[Trend]:
-        trends = self.session.query(Trend).filter(~Trend.is_archived).all()
+        # 取最近 90 天的热点作为候选集（避免全表扫描）
+        cutoff = datetime.now() - timedelta(days=self.ARCHIVE_DAYS)
+        trends = (
+            self.session.query(Trend)
+            .filter(~Trend.is_archived)
+            .filter((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff))
+            .all()
+        )
         for t in trends:
             timeliness = self._calc_timeliness_score(t)
             click_bonus = min((t.click_count or 0) * 3, 20)
@@ -241,7 +306,14 @@ class TrendRepository(BaseRepository):
         return trends[:limit]
 
     def get_fresh_hotspots(self, limit: int = 5) -> List[Trend]:
-        trends = self.session.query(Trend).filter(~Trend.is_archived).all()
+        # timeliness >= 80 意味着 published_at 在一周内
+        cutoff = datetime.now() - timedelta(days=7)
+        trends = (
+            self.session.query(Trend)
+            .filter(~Trend.is_archived)
+            .filter((Trend.published_at >= cutoff) | (Trend.fetched_at >= cutoff))
+            .all()
+        )
         fresh = []
         for t in trends:
             timeliness = self._calc_timeliness_score(t)
@@ -273,8 +345,13 @@ class TrendRepository(BaseRepository):
         return False
 
     def delete_expired(self) -> int:
-        trends = self.session.query(Trend).filter(~Trend.is_archived).all()
-        expired = [t for t in trends if self._is_expired(t)]
+        cutoff = datetime.now() - timedelta(days=self.EXPIRED_DAYS)
+        expired = (
+            self.session.query(Trend)
+            .filter(~Trend.is_archived)
+            .filter(Trend.published_at <= cutoff)
+            .all()
+        )
         for t in expired:
             self.session.delete(t)
         self.session.commit()
@@ -283,8 +360,13 @@ class TrendRepository(BaseRepository):
         return len(expired)
 
     def delete_stale(self) -> int:
-        trends = self.session.query(Trend).filter(~Trend.is_archived).all()
-        stale = [t for t in trends if self._is_stale(t)]
+        cutoff = datetime.now() - timedelta(days=self.ARCHIVE_DAYS)
+        stale = (
+            self.session.query(Trend)
+            .filter(~Trend.is_archived)
+            .filter(Trend.published_at <= cutoff)
+            .all()
+        )
         for t in stale:
             t.is_archived = True  # type: ignore[assignment]
         self.session.commit()

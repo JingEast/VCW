@@ -287,19 +287,32 @@ def _update_batch_progress(batch_id: str, subtask_id: str, status: str, data: di
                 child.error = str(data.get("error", ""))[:500]
             child.completed_at = datetime.utcnow()
 
-        # 重新聚合
-        children = (
-            session.query(GenerationJob)
+        # 重新聚合（使用 COUNT 聚合查询，避免加载所有子任务对象）
+        from sqlalchemy import func
+
+        total = (
+            session.query(func.count(GenerationJob.id))
             .filter(GenerationJob.parent_batch_id == batch_id)
-            .all()
+            .scalar()
         )
-        total = len(children)
         if total == 0:
             return
 
-        completed = sum(1 for c in children if c.status == "completed")
-        failed = sum(1 for c in children if c.status == "failed")
-        cancelled = sum(1 for c in children if c.status == "cancelled")
+        completed = (
+            session.query(func.count(GenerationJob.id))
+            .filter(GenerationJob.parent_batch_id == batch_id, GenerationJob.status == "completed")
+            .scalar()
+        )
+        failed = (
+            session.query(func.count(GenerationJob.id))
+            .filter(GenerationJob.parent_batch_id == batch_id, GenerationJob.status == "failed")
+            .scalar()
+        )
+        cancelled = (
+            session.query(func.count(GenerationJob.id))
+            .filter(GenerationJob.parent_batch_id == batch_id, GenerationJob.status == "cancelled")
+            .scalar()
+        )
         done = completed + failed + cancelled
 
         parent.result = {
