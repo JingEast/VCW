@@ -16,6 +16,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 # SQLite :memory: 需要 StaticPool，否则每次新连接都是空数据库
 _is_memory_sqlite = DATABASE_URL.startswith("sqlite:///:memory:")
+_is_postgresql = DATABASE_URL.startswith("postgresql")
+
 _engine_kwargs: dict[str, Any] = {
     "echo": False,
     "pool_pre_ping": True,          # 自动检测断连
@@ -24,6 +26,10 @@ _engine_kwargs: dict[str, Any] = {
 if _is_memory_sqlite:
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
     _engine_kwargs["poolclass"] = StaticPool
+elif _is_postgresql:
+    # 生产环境连接池：基础 10 个连接，峰值 30 个
+    _engine_kwargs["pool_size"] = int(os.environ.get("DB_POOL_SIZE", "10"))
+    _engine_kwargs["max_overflow"] = int(os.environ.get("DB_MAX_OVERFLOW", "20"))
 
 engine = create_engine(
     DATABASE_URL,

@@ -146,17 +146,16 @@ def dead_letter_task(self) -> dict:
 
     session = get_session()
     try:
-        jobs = session.query(GenerationJob).filter(
-            GenerationJob.dead_letter.is_(True),
-            GenerationJob.status == "failed",
-        ).all()
-
-        processed = 0
-        for job in jobs:
-            # 目前仅记录日志，未来可扩展为人工审核/重新投递
-            processed += 1
-
-        return {"processed": processed, "dead_letter_jobs": [j.id for j in jobs]}
+        job_ids = (
+            session.query(GenerationJob.id)
+            .filter(
+                GenerationJob.dead_letter.is_(True),
+                GenerationJob.status == "failed",
+            )
+            .all()
+        )
+        job_ids = [j.id for j in job_ids]
+        return {"processed": len(job_ids), "dead_letter_jobs": job_ids}
     finally:
         session.close()
 

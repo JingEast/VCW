@@ -43,13 +43,22 @@ class JobRepository(BaseRepository):
         return True
 
     def cancel(self, job_id: str) -> bool:
-        job = self.get_by_id(job_id)
-        if not job or job.status in ("completed", "failed"):
-            return False
-        job.status = "cancelled"
-        job.message = "用户已取消"
+        updated = (
+            self.session.query(GenerationJob)
+            .filter(
+                GenerationJob.id == job_id,
+                ~GenerationJob.status.in_(["completed", "failed"]),
+            )
+            .update(
+                {
+                    "status": "cancelled",
+                    "message": "用户已取消",
+                },
+                synchronize_session=False,
+            )
+        )
         self.session.commit()
-        return True
+        return updated > 0
 
     def get_status(self, job_id: str) -> Optional[Dict]:
         job = self.get_by_id(job_id)
@@ -64,17 +73,24 @@ class JobRepository(BaseRepository):
         return [j.to_dict() for j in jobs]
 
     def recover_on_startup(self):
-        """启动时恢复：将 pending/running 任务标记为 failed"""
-        jobs = self.session.query(GenerationJob).filter(
-            GenerationJob.status.in_(["pending", "running"])
-        ).all()
-        for j in jobs:
-            j.status = "failed"
-            j.message = "服务重启导致任务中断"
-            j.completed_at = datetime.utcnow()
+        """启动时恢复：将 pending/running 任务批量标记为 failed"""
+        from sqlalchemy import func
+
+        updated = (
+            self.session.query(GenerationJob)
+            .filter(GenerationJob.status.in_(["pending", "running"]))
+            .update(
+                {
+                    "status": "failed",
+                    "message": "服务重启导致任务中断",
+                    "completed_at": func.now(),
+                },
+                synchronize_session=False,
+            )
+        )
         self.session.commit()
-        if jobs:
-            print(f"[JobRepository] 恢复 {len(jobs)} 个未完成任务为 failed")
+        if updated:
+            print(f"[JobRepository] 恢复 {updated} 个未完成任务为 failed")
 
     def cleanup_old_tasks(self):
         """清理旧任务，只保留最近 100 个已完成任务"""
