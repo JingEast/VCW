@@ -38,10 +38,15 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
     batch_id = req_data.get("_batch_id")
     angle = req_data.get("angle", "")
     task_id = self.request.id
+    trace_id = _get_task_trace_id(self)
 
     # 更新子任务状态为 running（仅在 DB 中有记录时）
     if batch_id:
         _update_job_status(task_id, status="running", started_at=datetime.utcnow())
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("[trace_id=%s] generate_copy_task start | task_id=%s batch_id=%s angle=%s", trace_id, task_id, batch_id, angle)
 
     def on_progress(progress: int, message: str):
         self.update_state(state="PROGRESS", meta={"progress": progress, "message": message})
@@ -51,11 +56,13 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
         if batch_id:
             result["angle"] = angle
             _update_batch_progress(batch_id, task_id, "success", result)
+        logger.info("[trace_id=%s] generate_copy_task success | task_id=%s", trace_id, task_id)
         return result
     except GenerationError as exc:
         try:
             self.retry(exc=exc)
         except Exception:
+            logger.error("[trace_id=%s] generate_copy_task failed | task_id=%s error=%s", trace_id, task_id, exc)
             if batch_id:
                 _update_batch_progress(
                     batch_id, task_id, "failed",
@@ -67,6 +74,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
         try:
             self.retry(exc=exc)
         except Exception:
+            logger.error("[trace_id=%s] generate_copy_task failed | task_id=%s error=%s", trace_id, task_id, exc)
             if batch_id:
                 _update_batch_progress(
                     batch_id, task_id, "failed",
@@ -83,6 +91,12 @@ def generate_batch_task(self, req_data: dict, angles: list, batch_id: str) -> di
     为每个角度创建子任务记录并提交 Celery group 并行执行。
     """
     from celery import group
+
+    trace_id = _get_task_trace_id(self)
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("[trace_id=%s] generate_batch_task start | batch_id=%s angles=%d", trace_id, batch_id, len(angles))
 
     # 更新父批次为 running
     _update_job_status(batch_id, status="running", started_at=datetime.utcnow())
@@ -149,6 +163,22 @@ def health_check_task(self) -> dict:
 # ------------------------------------------------------------------------------
 # 内部辅助函数
 # ------------------------------------------------------------------------------
+
+def _get_task_trace_id(task) -> str:
+    """从 Celery task request 中提取 trace_id；不存在时生成新的。"""
+    req = getattr(task, "request", None)
+    if req is None:
+        return uuid.uuid4().hex[:12]
+    meta = getattr(req, "meta", {}) or {}
+    trace_id = meta.get("trace_id")
+    if trace_id is not None:
+        return str(trace_id)
+    # 兼容直接设置在 request 上的属性
+    trace_id = getattr(req, "trace_id", None)
+    if trace_id is not None:
+        return str(trace_id)
+    return uuid.uuid4().hex[:12]
+
 
 def _make_subtask_id(batch_id: str, angle: str) -> str:
     """生成确定性子任务 ID（batch_id + angle 的哈希），保证幂等性。"""

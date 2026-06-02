@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import os
 
+import uuid
+
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import worker_process_init, task_prerun
 
 # ------------------------------------------------------------------------------
 # 环境变量配置（可通过 .env 或 shell 覆盖）
@@ -84,6 +86,20 @@ def init_container(**kwargs):
 
     container = AppContainer()
     set_container(container)
+
+
+@task_prerun.connect
+def inject_task_trace_id(sender=None, task=None, **kwargs):
+    """任务执行前注入 trace_id，供日志和监控使用。"""
+    if task is not None:
+        trace_id = uuid.uuid4().hex[:12]
+        # 兼容不同 Celery 版本的 request 对象
+        if hasattr(task, "request") and hasattr(task.request, "meta"):
+            if task.request.meta is None:
+                task.request.meta = {}
+            task.request.meta["trace_id"] = trace_id
+        elif hasattr(task, "request"):
+            setattr(task.request, "trace_id", trace_id)
 
 
 def health_check() -> dict:

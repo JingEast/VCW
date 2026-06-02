@@ -1,7 +1,7 @@
 import os
 import traceback
 import uuid
-from flask import Flask, jsonify, request
+from flask import Flask, has_request_context, jsonify, request
 
 
 def create_app() -> Flask:
@@ -38,6 +38,7 @@ def create_app() -> Flask:
 
     setup_logging(app)
     _register_error_handlers(app)
+    _register_trace_middleware(app)
 
     # ============================================================
     # 页面 Blueprints（无 url_prefix，保持原有 URL 路径）
@@ -165,12 +166,30 @@ def _generate_trace_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
+def _get_current_trace_id() -> str:
+    """获取当前请求上下文的 trace_id；不存在时生成新的。"""
+    if has_request_context():
+        from flask import g
+        return getattr(g, "trace_id", _generate_trace_id())
+    return _generate_trace_id()
+
+
+def _register_trace_middleware(app: Flask) -> None:
+    """注册追踪中间件：在响应头中注入 X-Trace-Id。"""
+
+    @app.after_request
+    def _inject_trace_header(response):
+        trace_id = _get_current_trace_id()
+        response.headers["X-Trace-Id"] = trace_id
+        return response
+
+
 def _register_error_handlers(app: Flask) -> None:
     """注册全局错误处理器，所有异常返回统一 JSON 格式并附带 trace_id"""
 
     @app.errorhandler(400)
     def bad_request(error):
-        trace_id = _generate_trace_id()
+        trace_id = _get_current_trace_id()
         app.logger.warning(
             "BadRequest [%s] %s %s | %s",
             trace_id,
@@ -188,7 +207,7 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(404)
     def not_found(error):
-        trace_id = _generate_trace_id()
+        trace_id = _get_current_trace_id()
         app.logger.warning(
             "NotFound [%s] %s %s",
             trace_id,
@@ -205,7 +224,7 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(405)
     def method_not_allowed(error):
-        trace_id = _generate_trace_id()
+        trace_id = _get_current_trace_id()
         app.logger.warning(
             "MethodNotAllowed [%s] %s %s",
             trace_id,
@@ -222,7 +241,7 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(500)
     def internal_error(error):
-        trace_id = _generate_trace_id()
+        trace_id = _get_current_trace_id()
         app.logger.error(
             "InternalError [%s] %s %s | %s\n%s",
             trace_id,
@@ -242,7 +261,7 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(Exception)
     def unhandled_exception(error):
-        trace_id = _generate_trace_id()
+        trace_id = _get_current_trace_id()
         app.logger.error(
             "UnhandledException [%s] endpoint=%s method=%s url=%s | %s\n%s",
             trace_id,
