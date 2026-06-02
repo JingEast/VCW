@@ -1,0 +1,117 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main, master]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================================================
+  # Stage 1: Deploy to Staging
+  # ==========================================================================
+  deploy-staging:
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    outputs:
+      deployed: ${{ steps.deploy.outputs.deployed }}
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        run: |
+          TAG=${GITHUB_SHA::8}
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "image_web=${{ secrets.DOCKER_USERNAME }}/vcw-web:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Deploy to staging
+        id: deploy
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          bash scripts/deploy.sh staging "$IMAGE_TAG"
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+          echo "url=http://localhost:5000" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        run: bash scripts/health-check.sh http://localhost:5000
+
+      - name: Alembic migration check
+        run: bash scripts/check_migrations.py
+
+  # ==========================================================================
+  # Stage 2: Deploy to Production (requires manual approval)
+  # ==========================================================================
+  deploy-production:
+    needs: deploy-staging
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        run: |
+          TAG=${GITHUB_SHA::8}
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Deploy to production
+        id: deploy
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          bash scripts/deploy.sh production "$IMAGE_TAG"
+          echo "url=http://localhost:5000" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        run: bash scripts/health-check.sh http://localhost:5000
+
+      - name: Alembic migration check
+        run: bash scripts/check_migrations.py
+
+      - name: Tag release
+        run: |
+          VERSION=$(bash scripts/version.sh)
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"

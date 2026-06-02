@@ -1,15 +1,19 @@
 {
   "enabled": true,
   "interval_minutes": 120,
-  "last_run": "2026-06-02T16:30:41.395767",
-  "next_run": "2026-06-02T18:30:41.395767",
+  "last_run": "2026-06-02T19:02:11.436830",
+  "next_run": "2026-06-02T21:02:11.436830",
   "last_result": {
-    "time": "2026-06-02T16:30:41.395767",
-    "count": 0,
-    "status": "failed",
-    "error": "cannot schedule new futures after interpreter shutdown"
+    "time": "2026-06-02T19:02:11.436830",
+    "count": 90,
+    "status": "success"
   },
   "run_history": [
+    {
+      "time": "2026-06-02T19:02:11.436830",
+      "count": 90,
+      "status": "success"
+    },
     {
       "time": "2026-06-02T16:30:41.395767",
       "count": 0,
@@ -56,12 +60,6 @@
     },
     {
       "time": "2026-05-31T19:44:31.868797",
-      "count": 0,
-      "status": "failed",
-      "error": "cannot schedule new futures after interpreter shutdown"
-    },
-    {
-      "time": "2026-05-31T17:41:15.525717",
       "count": 0,
       "status": "failed",
       "error": "cannot schedule new futures after interpreter shutdown"

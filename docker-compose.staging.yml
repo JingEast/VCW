@@ -1,0 +1,30 @@
+# =============================================================================
+# Staging 环境覆盖配置
+# =============================================================================
+
+version: "3.8"
+
+services:
+  web:
+    image: ${DOCKER_USERNAME}/vcw-web:${IMAGE_TAG:-latest}
+    environment:
+      FLASK_DEBUG: "false"
+      WAIT_TIMEOUT: "60"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  worker:
+    image: ${DOCKER_USERNAME}/vcw-worker:${IMAGE_TAG:-latest}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  beat:
+    image: ${DOCKER_USERNAME}/vcw-beat:${IMAGE_TAG:-latest}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
