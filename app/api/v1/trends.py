@@ -4,6 +4,7 @@
 from flask import Blueprint, request
 
 from app.core.container import get_service
+from app.core.flask_cache import cache
 from app.api.v1.common import success_response, error_response
 from domains.trend.application import (
     DisableSchedulerCommand,
@@ -18,6 +19,7 @@ bp = Blueprint("api_v1_trends", __name__)
 
 
 @bp.route("/trends/fresh")
+@cache.cached(timeout=300, key_prefix="api_trends_fresh")
 def api_trends_fresh():
     """API：获取最新热点（用于首页展示）"""
     handler = get_service("trend_handler")
@@ -29,6 +31,7 @@ def api_trends_fresh():
 
 
 @bp.route("/trends/scheduler/status")
+@cache.cached(timeout=60, key_prefix="api_scheduler_status")
 def scheduler_status():
     """获取定时爬取调度器状态"""
     handler = get_service("trend_handler")

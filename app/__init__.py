@@ -43,6 +43,9 @@ def create_app() -> Flask:
     _register_metrics_middleware(app)
     _register_profiler(app)
 
+    # 初始化 Flask-Caching
+    _init_cache(app)
+
     # ============================================================
     # 页面 Blueprints（无 url_prefix，保持原有 URL 路径）
     # ============================================================
@@ -489,3 +492,24 @@ def _register_cache_headers(app: Flask) -> None:
             return response
 
         return response
+
+
+def _init_cache(app: Flask) -> None:
+    """初始化 Flask-Caching（Redis 优先，内存 fallback）。"""
+    from app.core.flask_cache import cache
+
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        cache_config = {
+            "CACHE_TYPE": "RedisCache",
+            "CACHE_REDIS_URL": redis_url,
+            "CACHE_DEFAULT_TIMEOUT": 300,
+        }
+    else:
+        cache_config = {
+            "CACHE_TYPE": "SimpleCache",
+            "CACHE_DEFAULT_TIMEOUT": 300,
+        }
+
+    app.config.from_mapping(cache_config)
+    cache.init_app(app)

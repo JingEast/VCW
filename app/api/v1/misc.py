@@ -5,6 +5,7 @@ API 杂项路由（API v1 Blueprint）
 from flask import Blueprint, request
 
 from app.core.container import get_service
+from app.core.flask_cache import cache
 from app.api.v1.common import success_response, error_response
 from domains.editor.application import SaveDraftCommand
 from domains.prompt.application import BuildPromptsQuery, GetModelStatusQuery
@@ -39,6 +40,7 @@ def save_stream():
 
 
 @bp.route("/model/status")
+@cache.cached(timeout=30, key_prefix="api_model_status")
 def model_status():
     """查询模型端点健康状态"""
     try:
