@@ -108,8 +108,24 @@ def create_app() -> Flask:
             "[error_code=<code> trace_id=<id>] for cross-reference\n"
             "# Dead letter tasks include trace_id in GenerationJob.result\n"
         )
+
+        # DB connection pool metrics
+        from vcw_copywriter.db.session import engine
+        pool = engine.pool
+        pool_size = getattr(pool, "size", lambda: 0)()
+        pool_checked_in = getattr(pool, "checked_in", lambda: 0)()
+        pool_checked_out = getattr(pool, "checked_out", lambda: 0)()
+        pool_overflow = getattr(pool, "overflow", lambda: 0)()
+        pool_metrics = (
+            f"\n# DB connection pool\n"
+            f"db_pool_size {pool_size}\n"
+            f"db_pool_checked_in {pool_checked_in}\n"
+            f"db_pool_checked_out {pool_checked_out}\n"
+            f"db_pool_overflow {pool_overflow}\n"
+        )
+
         return (
-            header + prom_output,
+            header + prom_output + pool_metrics,
             200,
             {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"},
         )
