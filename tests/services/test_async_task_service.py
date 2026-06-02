@@ -13,6 +13,7 @@ AsyncTaskService 单元测试
 from __future__ import annotations
 
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 from unittest.mock import MagicMock
 
 import pytest
@@ -121,7 +122,7 @@ class TestGetAsyncStatus:
                 job_type="generate",
                 status="pending",
                 celery_task_id="task-001",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(job)
             session.commit()
@@ -161,7 +162,7 @@ class TestGetAsyncStatus:
                 job_type="generate",
                 status="pending",
                 celery_task_id="task-002",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(job)
             session.commit()
@@ -272,7 +273,7 @@ class TestGetAsyncBatchStatus:
                 job_type="batch",
                 status="running",
                 result={"total": 2, "completed": 0, "failed": 0, "cancelled": 0},
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(parent)
 
@@ -282,7 +283,7 @@ class TestGetAsyncBatchStatus:
                 status="completed",
                 parent_batch_id=batch_id,
                 result={"angle": "焦虑型"},
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             child2 = GenerationJob(
                 id="child-002",
@@ -291,7 +292,7 @@ class TestGetAsyncBatchStatus:
                 parent_batch_id=batch_id,
                 result={"angle": "数据型"},
                 error="模拟错误",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(child1)
             session.add(child2)
@@ -340,7 +341,7 @@ class TestCancelAsyncBatch:
                 id=batch_id,
                 job_type="batch",
                 status="running",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(parent)
 
@@ -350,7 +351,7 @@ class TestCancelAsyncBatch:
                 status="pending",
                 parent_batch_id=batch_id,
                 celery_task_id="celery-child-003",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(child)
             session.commit()

@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now
 """Distributed System & Microservice Readiness Tests
 
 验证：
@@ -151,7 +152,7 @@ class TestDeadLetter:
                 status="failed",
                 dead_letter=True,
                 error="模拟失败",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(job)
             session.commit()

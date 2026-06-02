@@ -1,3 +1,4 @@
+from app.core.datetime_utils import utc_now
 """Celery 基础设施测试。
 
 测试策略：
@@ -153,7 +154,7 @@ class TestCeleryTasks:
                 job_type="batch",
                 status="pending",
                 result={"total": len(angles), "completed": 0, "failed": 0, "cancelled": 0},
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(parent)
             session.commit()
@@ -222,7 +223,7 @@ class TestCeleryTasks:
                 job_type="batch",
                 status="pending",
                 result={"total": len(angles), "completed": 0, "failed": 0, "cancelled": 0},
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(parent)
             session.commit()

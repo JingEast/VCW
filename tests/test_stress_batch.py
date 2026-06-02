@@ -21,6 +21,7 @@ import time
 import uuid
 import tracemalloc
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 
 import pytest
 
@@ -75,7 +76,7 @@ def _create_parent_batch(batch_id: str, total_angles: int):
                 "failed": 0,
                 "cancelled": 0,
             },
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
         session.add(parent)
         session.commit()

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 
 from celery_app import app
 
@@ -43,7 +44,7 @@ def generate_copy_task(self, req_data: dict) -> dict:  # type: ignore[return]
 
     # 更新子任务状态为 running（仅在 DB 中有记录时）
     if batch_id:
-        _update_job_status(task_id, status="running", started_at=datetime.utcnow())
+        _update_job_status(task_id, status="running", started_at=utc_now())
 
     import logging
     logger = logging.getLogger(__name__)
@@ -106,7 +107,7 @@ def generate_batch_task(self, req_data: dict, angles: list, batch_id: str) -> di
     _record_celery_metric("generate_batch_task", "started")
 
     # 更新父批次为 running
-    _update_job_status(batch_id, status="running", started_at=datetime.utcnow())
+    _update_job_status(batch_id, status="running", started_at=utc_now())
 
     subtasks = []
     for angle in angles:
@@ -284,7 +285,7 @@ def _update_batch_progress(batch_id: str, subtask_id: str, status: str, data: di
                 child.result = data
             elif status == "failed":
                 child.error = str(data.get("error", ""))[:500]
-            child.completed_at = datetime.utcnow()
+            child.completed_at = utc_now()
 
         # 重新聚合（使用 COUNT 聚合查询，避免加载所有子任务对象）
         from sqlalchemy import func
@@ -323,7 +324,7 @@ def _update_batch_progress(batch_id: str, subtask_id: str, status: str, data: di
         parent.progress = int(done / total * 100)
 
         if done == total:
-            parent.completed_at = datetime.utcnow()
+            parent.completed_at = utc_now()
             if failed == 0 and cancelled == 0:
                 parent.status = "completed"
                 parent.message = f"全部 {total} 个任务完成"
@@ -360,7 +361,7 @@ def _store_dead_letter(req_data: dict, error: str, celery_task_id: str, trace_id
             dead_letter=True,
             celery_task_id=celery_task_id,
             result={"trace_id": trace_id, "req_data": req_data},
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
         session.add(job)
         session.commit()

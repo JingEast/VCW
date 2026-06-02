@@ -4,6 +4,7 @@ SQLAlchemy ORM 模型
 """
 from datetime import datetime
 
+from app.core.datetime_utils import utc_now
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column, String, Text, Integer, Boolean,
@@ -32,8 +33,8 @@ class Trend(Base):  # type: ignore[valid-type, misc]
     is_archived = Column(Boolean, default=False)
     published_at = Column(DateTime, nullable=True)
     fetched_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     time_source = Column(String(50), default="")          # 原 _time_source
     keyword = Column(String(200), default="")
     composite_score = Column(Integer, nullable=True)       # 运行时计算，可缓存
@@ -92,8 +93,8 @@ class Trend(Base):  # type: ignore[valid-type, misc]
             is_archived=bool(data.get("is_archived")),
             published_at=_dt(data.get("published_at")),
             fetched_at=_dt(data.get("fetched_at")),
-            created_at=_dt(data.get("created_at")) or datetime.utcnow(),
-            updated_at=_dt(data.get("updated_at")) or datetime.utcnow(),
+            created_at=_dt(data.get("created_at")) or utc_now(),
+            updated_at=_dt(data.get("updated_at")) or utc_now(),
             time_source=data.get("_time_source", ""),
             keyword=data.get("keyword", ""),
         )
@@ -109,7 +110,7 @@ class MemoryEntry(Base):  # type: ignore[valid-type, misc]
     issue_tags = Column(JSON, default=list)
     correction_plan = Column(Text, default="")
     original_text = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     is_avoided = Column(Boolean, default=False)
     embedding = mapped_column(Vector(1536), nullable=True)  # pgvector 语义向量
 
@@ -142,7 +143,7 @@ class MemoryEntry(Base):  # type: ignore[valid-type, misc]
             issue_tags=data.get("issue_tags") or [],
             correction_plan=data.get("correction_plan", ""),
             original_text=data.get("original_text", ""),
-            created_at=_dt(data.get("created_at")) or datetime.utcnow(),
+            created_at=_dt(data.get("created_at")) or utc_now(),
             is_avoided=bool(data.get("is_avoided")),
         )
 
@@ -158,7 +159,7 @@ class GenerationJob(Base):  # type: ignore[valid-type, misc]
     message = Column(Text, default="")
     result = Column(JSON, default=dict)
     error = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     retry_count = Column(Integer, default=0)
@@ -214,7 +215,7 @@ class PromptVersion(Base):  # type: ignore[valid-type, misc]
     prompt_name = Column(String(200), nullable=False, index=True)   # 如 "system_prompt", "viral_rewrite"
     version = Column(String(50), nullable=False)                     # 语义版本号，如 "v1.2.0"
     content = Column(Text, nullable=False)                           # Prompt 完整文本
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     __table_args__ = (
         UniqueConstraint("prompt_name", "version", name="uq_prompt_version"),
@@ -243,7 +244,7 @@ class GenerationResult(Base):  # type: ignore[valid-type, misc]
     draft_id = Column(String(16), default="")
     passed = Column(Boolean, nullable=True)
     report = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     def to_dict(self) -> dict:
         return {

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 from typing import Dict, Optional
 
 from services.generation_service import GenerationError
@@ -113,7 +114,7 @@ class AsyncTaskService:
             progress=0,
             message="等待执行...",
             celery_task_id=task_id,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
 
         session = get_session()
@@ -245,7 +246,7 @@ class AsyncTaskService:
                 "failed": 0,
                 "cancelled": 0,
             },
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
 
         session = get_session()
@@ -395,7 +396,7 @@ class AsyncTaskService:
                     GenerationJobMapper.update_orm(child_entity, child_orm)
 
             parent_entity = GenerationJobMapper.to_entity(parent_orm)
-            parent_entity.mark_cancelled(completed_at=datetime.utcnow())
+            parent_entity.mark_cancelled(completed_at=utc_now())
             GenerationJobMapper.update_orm(parent_entity, parent_orm)
 
             session.commit()

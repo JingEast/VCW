@@ -3,6 +3,7 @@ GenerationJob Repository
 生成任务数据访问层（原 task_queue.db 的替代）。
 """
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -25,7 +26,7 @@ class JobRepository(BaseRepository):
             status="pending",
             progress=0,
             message="等待执行...",
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
         self.session.add(job)
         self.session.commit()

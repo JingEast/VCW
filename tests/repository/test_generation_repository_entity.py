@@ -9,6 +9,7 @@ ORM 对象不会泄漏到业务逻辑层。
 from __future__ import annotations
 
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 
 import pytest
 
@@ -39,7 +40,7 @@ class TestRepositoryReturnsEntity:
                 message="测试中",
                 result={"key": "value"},
                 error="",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
                 celery_task_id="task-repo-001",
             )
             session.add(orm)
@@ -75,7 +76,7 @@ class TestRepositoryReturnsEntity:
                 job_type="batch",
                 status="pending",
                 result={"total": 10},
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(orm)
             session.commit()
@@ -182,7 +183,7 @@ class TestRepositoryReturnsEntity:
                 id="batch-repo-005",
                 job_type="batch",
                 status="running",
-                created_at=datetime.utcnow(),
+                created_at=utc_now(),
             )
             session.add(parent_orm)
 
@@ -193,7 +194,7 @@ class TestRepositoryReturnsEntity:
                     status=st,
                     parent_batch_id="batch-repo-005",
                     result={"angle": f"角度{i}"},
-                    created_at=datetime.utcnow(),
+                    created_at=utc_now(),
                 )
                 session.add(child_orm)
 

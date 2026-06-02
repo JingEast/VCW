@@ -7,6 +7,7 @@ JSON 文件保留作为本地缓存/备份，启动时若数据库为空则自�
 import json
 import uuid
 from datetime import datetime, timedelta
+from app.core.datetime_utils import utc_now
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -147,7 +148,7 @@ class TrendDatabase:
         fa = t_dict.get("fetched_at", "")
         trend_orm.fetched_at = TimeParser.parse_datetime(fa) if fa else None
         ua = t_dict.get("updated_at", "")
-        trend_orm.updated_at = TimeParser.parse_datetime(ua) if ua else datetime.utcnow()
+        trend_orm.updated_at = TimeParser.parse_datetime(ua) if ua else utc_now()
 
     def _build_categories(self, trends: List[Dict]) -> Dict:
         cats: Dict[str, List[str]] = {}

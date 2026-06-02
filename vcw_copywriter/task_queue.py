@@ -8,6 +8,7 @@
 import json
 import threading
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 from typing import Dict, Callable, Optional
 
 from .db.session import init_db, get_session
@@ -56,7 +57,7 @@ class TaskQueue:
         self._repo_call("update_task", task_id, **fields)
 
     def _run_task(self, task_id: str, worker_fn: Callable, **kwargs):
-        self._update_task(task_id, status="running", started_at=datetime.utcnow())
+        self._update_task(task_id, status="running", started_at=utc_now())
         self._current_task_id = task_id
         try:
             def update_progress(progress: int, message: str):
@@ -86,7 +87,7 @@ class TaskQueue:
                 progress=100,
                 message="生成完成",
                 result=result_json,
-                completed_at=datetime.utcnow(),
+                completed_at=utc_now(),
             )
         except Exception as e:
             job = self._repo_call("get_by_id", task_id)
@@ -95,7 +96,7 @@ class TaskQueue:
                     task_id,
                     status="failed",
                     error=str(e)[:500],
-                    completed_at=datetime.utcnow(),
+                    completed_at=utc_now(),
                 )
         finally:
             if self._current_task_id == task_id:
