@@ -9,6 +9,9 @@ pytest>=8.0.0
 dependency-injector>=4.49.0
 alembic>=1.14.0
 defusedxml>=0.7.1
+celery>=5.3.0
+redis>=5.0.0
+pgvector>=0.4.0
 
 # Optional: OpenTelemetry Tracing (Jaeger/OTLP/Console)
 # opentelemetry-api>=1.24.0
