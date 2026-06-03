@@ -85,17 +85,24 @@ jobs:
       - name: Run tests with coverage
         run: pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term
 
-      - name: Upload coverage to Codecov
-        if: github.event_name == 'push' && secrets.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage to Codecov (optional)
+        if: github.event_name == 'push'
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [ -n "$CODECOV_TOKEN" ]; then
+            echo "Uploading coverage to Codecov..."
 
-      - name: Warn missing Codecov token
-        if: github.event_name == 'push' && secrets.CODECOV_TOKEN == ''
-        run: echo "::warning::CODECOV_TOKEN not configured; coverage report not uploaded."
+            curl -Os https://uploader.codecov.io/latest/linux/codecov
+            chmod +x codecov
+
+            ./codecov \
+              -t "$CODECOV_TOKEN" \
+              -f coverage.xml || true
+
+          else
+            echo "::warning::CODECOV_TOKEN not configured; coverage upload skipped."
+          fi
 
   # ==========================================================================
   # Stage 3: Migration Check (Alembic)
