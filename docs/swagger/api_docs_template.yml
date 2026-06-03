@@ -1,0 +1,75 @@
+# VCW API OpenAPI Template
+# Used by flasgger to generate Swagger UI
+
+swagger: "2.0"
+info:
+  title: VCW API
+  description: |
+    港籍升学热点文案批量生成器 REST API。
+    所有 API 端点（除特别声明外）需要 JWT Bearer Token 认证。
+  version: "1.0.0"
+  contact:
+    name: VCW Team
+    url: https://github.com/JingEast/VCW
+
+basePath: /api/v1
+schemes:
+  - http
+  - https
+
+securityDefinitions:
+  Bearer:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "JWT Token. Format: Bearer <token>"
+
+tags:
+  - name: Generation
+    description: 文案生成接口（流式/异步/批量）
+  - name: Editor
+    description: 文案编辑与去 AI 化
+  - name: Prompts
+    description: Prompt 模板管理
+  - name: Trends
+    description: 热点趋势与调度器
+  - name: Misc
+    description: 模型状态与文件预览
+
+paths: {}
+
+definitions:
+  ApiResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+        example: true
+      message:
+        type: string
+        example: "ok"
+      data:
+        type: object
+      error:
+        type: string
+        example: null
+
+  ErrorResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+        example: false
+      message:
+        type: string
+        example: "Error occurred"
+      data:
+        type: object
+        example: null
+      error:
+        type: object
+        properties:
+          code:
+            type: string
+          message:
+            type: string

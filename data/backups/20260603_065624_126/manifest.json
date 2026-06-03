@@ -1,0 +1,11 @@
+{
+  "created_at": "2026-06-03T06:57:00.268893+00:00",
+  "db_type": "sqlite",
+  "db_file": "db_dump.sql.gz",
+  "version": "5ff8b90",
+  "checksums": {
+    "db_dump.sql.gz": "fb82c900f363d68097fe8208c51df1794c6c6f8c56a1ce35930f88380f02e80d",
+    "files.tar.gz": "70de34e62cd0a3352e84ff311747fa13792db6862c8d17bea7bb70099e156b36"
+  },
+  "files_archive": "files.tar.gz"
+}
