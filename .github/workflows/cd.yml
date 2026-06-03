@@ -39,7 +39,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify staging environment exists
+        run: |
+          ENV_URL="https://api.github.com/repos/${{ github.repository }}/environments/staging"
+          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$ENV_URL")
+          if echo "$RESPONSE" | grep -q '"message":"Not Found"'; then
+            echo "::warning::Staging environment not found; GitHub will auto-create it on first use."
+          else
+            echo "Staging environment verified."
+          fi
+
+      - name: Check Docker Hub secrets
+        id: docker_secrets
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::DOCKER_USERNAME or DOCKER_PASSWORD not configured. Skipping deployment."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Docker meta
+        if: steps.docker_secrets.outputs.available == 'true'
         id: meta
         run: |
           TAG=${GITHUB_SHA::8}
@@ -47,12 +70,14 @@ jobs:
           echo "image_web=${{ secrets.DOCKER_USERNAME }}/vcw-web:${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
+        if: steps.docker_secrets.outputs.available == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Deploy to staging
+        if: steps.docker_secrets.outputs.available == 'true'
         id: deploy
         env:
           IMAGE_TAG: ${{ steps.meta.outputs.tag }}
@@ -63,9 +88,11 @@ jobs:
           echo "url=http://localhost:5000" >> "$GITHUB_OUTPUT"
 
       - name: Health check
+        if: steps.docker_secrets.outputs.available == 'true'
         run: bash scripts/health-check.sh http://localhost:5000
 
       - name: Alembic migration check
+        if: steps.docker_secrets.outputs.available == 'true'
         run: bash scripts/check_migrations.py
 
   # ==========================================================================
@@ -83,19 +110,59 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify production environment protection
+        run: |
+          ENV_URL="https://api.github.com/repos/${{ github.repository }}/environments/production"
+          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$ENV_URL")
+
+          # Check if environment exists
+          if echo "$RESPONSE" | grep -q '"message":"Not Found"'; then
+            echo "::warning::Production environment does not exist yet; GitHub will auto-create it on first use."
+            echo "::warning::IMPORTANT: After first run, configure protection rules at:"
+            echo "::warning::  https://github.com/${{ github.repository }}/settings/environments"
+            exit 0
+          fi
+
+          # Check for protection rules
+          RULES=$(echo "$RESPONSE" | grep -o '"type":"[^"]*"' || true)
+          if [ -z "$RULES" ]; then
+            echo "::error::Production environment has NO protection rules configured."
+            echo "::error::Go-Live blocker REL-03: Add required reviewers or wait timer at:"
+            echo "::error::  https://github.com/${{ github.repository }}/settings/environments"
+            exit 1
+          fi
+
+          echo "Production environment protection rules configured:"
+          echo "$RULES"
+
+      - name: Check Docker Hub secrets
+        id: docker_secrets
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::DOCKER_USERNAME or DOCKER_PASSWORD not configured. Skipping deployment."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Docker meta
+        if: steps.docker_secrets.outputs.available == 'true'
         id: meta
         run: |
           TAG=${GITHUB_SHA::8}
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
+        if: steps.docker_secrets.outputs.available == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Deploy to production
+        if: steps.docker_secrets.outputs.available == 'true'
         id: deploy
         env:
           IMAGE_TAG: ${{ steps.meta.outputs.tag }}
@@ -105,12 +172,15 @@ jobs:
           echo "url=http://localhost:5000" >> "$GITHUB_OUTPUT"
 
       - name: Health check
+        if: steps.docker_secrets.outputs.available == 'true'
         run: bash scripts/health-check.sh http://localhost:5000
 
       - name: Alembic migration check
+        if: steps.docker_secrets.outputs.available == 'true'
         run: bash scripts/check_migrations.py
 
       - name: Tag release
+        if: steps.docker_secrets.outputs.available == 'true'
         run: |
           VERSION=$(bash scripts/version.sh)
           git tag -a "$VERSION" -m "Release $VERSION"

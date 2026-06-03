@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from pathlib import Path
+
 from app.core.datetime_utils import utc_now
 
 from celery_app import app
@@ -164,6 +166,75 @@ def health_check_task(self) -> dict:
     from celery_app import health_check
 
     return health_check()
+
+
+@app.task(bind=True, max_retries=2, default_retry_delay=300)
+def backup_task(self) -> dict:
+    """定时备份任务：创建数据库和文件备份，清理过期备份。"""
+    import logging
+    import time
+
+    from app.core.metrics import get_global_collector
+    from app.services.backup_service import BackupService
+
+    logger = logging.getLogger(__name__)
+    start = time.time()
+    collector = get_global_collector()
+
+    try:
+        from flask import current_app
+
+        db_uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "sqlite:///data/vcw.db")
+        backup_dir = current_app.config.get("BACKUP_DIR", "data/backups")
+    except Exception:
+        db_uri = "sqlite:///data/vcw.db"
+        backup_dir = "data/backups"
+
+    svc = BackupService(backup_dir=backup_dir, db_uri=db_uri)
+    try:
+        backup_path = svc.create_backup()
+        removed = svc.cleanup_expired_backups()
+        duration = time.time() - start
+        collector.record_backup("success", duration)
+        logger.info("[backup] success | path=%s | removed=%d | duration=%.2fs", backup_path, len(removed), duration)
+        return {"status": "success", "path": str(backup_path), "removed": len(removed), "duration": duration}
+    except Exception as exc:
+        duration = time.time() - start
+        collector.record_backup("failed", duration)
+        logger.error("[backup] failed | duration=%.2fs | error=%s", duration, exc)
+        raise self.retry(exc=exc)
+
+
+@app.task(bind=True, max_retries=1, default_retry_delay=60)
+def verify_backup_task(self) -> dict:
+    """定时验证任务：验证最新备份完整性。"""
+    import logging
+
+    from app.services.backup_service import BackupService
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        from flask import current_app
+
+        backup_dir = current_app.config.get("BACKUP_DIR", "data/backups")
+    except Exception:
+        backup_dir = "data/backups"
+
+    svc = BackupService(backup_dir=backup_dir, db_uri="sqlite:///data/vcw.db")
+    backups = svc.list_backups()
+    if not backups:
+        logger.warning("[verify_backup] no backups found")
+        return {"status": "no_backups"}
+
+    latest = Path(backups[0]["path"])
+    result = svc.verify_backup(latest)
+    if result.get("overall"):
+        logger.info("[verify_backup] ok | path=%s", latest)
+        return {"status": "verified", "path": str(latest), "details": result["details"]}
+    else:
+        logger.error("[verify_backup] failed | path=%s | result=%s", latest, result)
+        raise Exception(f"Backup verification failed: {result}")
 
 
 # ------------------------------------------------------------------------------

@@ -76,6 +76,18 @@ app.conf.update(
     # 结果后端清理
     result_backend_max_retries=3,
     result_chord_retry_interval=5,
+
+    # 定时任务（Beat 调度）
+    beat_schedule={
+        "daily-backup": {
+            "task": "vcw_celery_tasks.tasks.backup_task",
+            "schedule": 86400.0,  # 每天一次（秒）
+        },
+        "weekly-verify": {
+            "task": "vcw_celery_tasks.tasks.verify_backup_task",
+            "schedule": 604800.0,  # 每周一次（秒）
+        },
+    },
 )
 
 
