@@ -31,6 +31,7 @@ class MetricsSnapshot:
     celery_tasks: dict[str, int] = field(default_factory=dict)
     errors: dict[str, int] = field(default_factory=dict)
     slow_queries: dict[str, int] = field(default_factory=dict)
+    backups: dict[str, float] = field(default_factory=dict)
     collected_at: Optional[str] = None
 
 
@@ -64,6 +65,12 @@ class MetricsCollector:
 
         # 慢查询指标
         self._slow_queries: Counter = Counter()
+
+        # 备份指标
+        self._backup_success: Counter = Counter()
+        self._backup_failures: Counter = Counter()
+        self._backup_durations: list[float] = []
+        self._MAX_BACKUP_ENTRIES = 50
 
     # ------------------------------------------------------------------
     # HTTP 指标
@@ -158,11 +165,23 @@ class MetricsCollector:
     # 快照导出
     # ------------------------------------------------------------------
 
+    def record_backup(self, status: str, duration_seconds: float) -> None:
+        """记录一次备份任务执行。"""
+        with self._lock:
+            if status == "success":
+                self._backup_success["total"] += 1
+            else:
+                self._backup_failures["total"] += 1
+            self._backup_durations.append(duration_seconds)
+            if len(self._backup_durations) > self._MAX_BACKUP_ENTRIES:
+                self._backup_durations.pop(0)
+
     def snapshot(self) -> MetricsSnapshot:
         """导出当前指标快照。"""
         from datetime import datetime, timezone
 
         with self._lock:
+            durations = self._backup_durations
             return MetricsSnapshot(
                 http_requests=dict(self._http_requests),
                 http_latency_ms={
@@ -185,6 +204,13 @@ class MetricsCollector:
                 celery_tasks=dict(self._celery_tasks),
                 errors=dict(self._errors),
                 slow_queries=dict(self._slow_queries),
+                backups={
+                    "success_total": self._backup_success.get("total", 0),
+                    "failure_total": self._backup_failures.get("total", 0),
+                    "duration_count": len(durations),
+                    "duration_avg_s": round(sum(durations) / len(durations), 2) if durations else 0.0,
+                    "duration_p99_s": round(self._percentile(durations, 0.99), 2) if durations else 0.0,
+                },
                 collected_at=datetime.now(timezone.utc).isoformat(),
             )
 
@@ -291,6 +317,24 @@ class MetricsCollector:
                 lines.append(
                     f'vcw_slow_queries_total{{name="{safe_name}"}} {count}'
                 )
+
+            # ---- Backup Metrics ----
+            lines.append("# HELP vcw_backup_success_total Total successful backups")
+            lines.append("# TYPE vcw_backup_success_total counter")
+            lines.append(f'vcw_backup_success_total {{}} {self._backup_success.get("total", 0)}')
+
+            lines.append("# HELP vcw_backup_failures_total Total failed backups")
+            lines.append("# TYPE vcw_backup_failures_total counter")
+            lines.append(f'vcw_backup_failures_total {{}} {self._backup_failures.get("total", 0)}')
+
+            lines.append("# HELP vcw_backup_duration_seconds Backup duration")
+            lines.append("# TYPE vcw_backup_duration_seconds summary")
+            durations = self._backup_durations
+            if durations:
+                lines.append(f'vcw_backup_duration_seconds_count {{}} {len(durations)}')
+                lines.append(f'vcw_backup_duration_seconds_sum {{}} {sum(durations):.6f}')
+                p99 = self._percentile(durations, 0.99)
+                lines.append(f'vcw_backup_duration_seconds {{quantile="0.99"}} {p99:.6f}')
 
         return "\n".join(lines) + "\n"
 

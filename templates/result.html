@@ -69,6 +69,7 @@
             </div>
             <div class="card-body">
                 <form action="{{ url_for('memory_add') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="topic" value="{{ topic }}">
                     <input type="hidden" name="original_text" value="{{ content[:300] }}">
                     

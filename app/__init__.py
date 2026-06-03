@@ -100,6 +100,65 @@ def create_app() -> Flask:
     app.register_blueprint(api_misc.bp, url_prefix="/api/v1")
 
     # ============================================================
+    # Auth Blueprints (register before auth init so routes exist)
+    # ============================================================
+    from app.pages import auth as pages_auth
+    from app.api.v1 import auth as api_auth
+
+    app.register_blueprint(pages_auth.bp)
+    app.register_blueprint(api_auth.bp, url_prefix="/api/v1")
+
+    # ============================================================
+    # JWT Authentication
+    # ============================================================
+    try:
+        from app.auth.jwt_handler import init_jwt
+        init_jwt(app)
+    except ImportError as exc:
+        app.logger.warning("JWT authentication disabled: %s", exc)
+
+    # ============================================================
+    # Session Authentication
+    # ============================================================
+    try:
+        from app.auth.session_handler import init_login_manager
+        from app.auth.session_manager import init_session_manager
+        init_login_manager(app)
+        init_session_manager(app)
+    except ImportError as exc:
+        app.logger.warning("Session authentication disabled: %s", exc)
+
+    # ============================================================
+    # API Auth Middleware
+    # ============================================================
+    try:
+        from app.middleware.auth_middleware import register_auth_middleware
+        register_auth_middleware(app)
+    except ImportError as exc:
+        app.logger.warning("API auth middleware disabled: %s", exc)
+
+    # ============================================================
+    # CSRF Protection
+    # ============================================================
+    # 测试环境禁用 CSRF（避免测试 POST 请求被拦截）
+    if app.config.get("TESTING"):
+        app.config["WTF_CSRF_ENABLED"] = False
+
+    try:
+        from flask_wtf.csrf import CSRFProtect
+        csrf = CSRFProtect()
+        csrf.init_app(app)
+        # Exempt API endpoints (JWT or session authenticated)
+        csrf.exempt(api_generate.bp)
+        csrf.exempt(api_trends.bp)
+        csrf.exempt(api_editor.bp)
+        csrf.exempt(api_prompts.bp)
+        csrf.exempt(api_misc.bp)
+        csrf.exempt(api_auth.bp)
+    except ImportError:
+        app.logger.warning("flask-wtf not installed, CSRF protection disabled")
+
+    # ============================================================
     # 健康检查端点（供 Docker / 负载均衡器使用）
     # ============================================================
     @app.route("/health")
@@ -249,6 +308,7 @@ def _patch_request_endpoint() -> None:
     """
     修补 request.endpoint，使 request.endpoint == 'index' 等判断在模板中正常工作。
     将 pages_main.index / api_v1_generate.stream 等转换为裸名。
+    同时保持 request.blueprint 正确，避免破坏 CSRF 豁免和框架功能。
     """
     global _request_endpoint_patched
     if _request_endpoint_patched:
@@ -256,18 +316,27 @@ def _patch_request_endpoint() -> None:
 
     from flask.wrappers import Request
 
-    _original_fget = Request.endpoint.fget  # type: ignore[attr-defined]
+    _original_endpoint_fget = Request.endpoint.fget  # type: ignore[attr-defined]
 
     @property  # type: ignore[misc]
     def patched_endpoint(self):
-        ep = _original_fget(self)
+        ep = _original_endpoint_fget(self)
         if ep and "." in ep:
             bp_name = ep.split(".", 1)[0]
             if bp_name.startswith("pages_") or bp_name.startswith("api_v1_"):
                 return ep.split(".", 1)[1]
         return ep
 
+    @property  # type: ignore[misc]
+    def patched_blueprint(self):
+        # 使用原始 endpoint 推导 blueprint，避免 patched_endpoint 截断后丢失蓝图名
+        ep = _original_endpoint_fget(self)
+        if ep is not None and "." in ep:
+            return ep.rpartition(".")[0]
+        return None
+
     Request.endpoint = patched_endpoint  # type: ignore[method-assign]
+    Request.blueprint = patched_blueprint  # type: ignore[method-assign]
     _request_endpoint_patched = True
 
 

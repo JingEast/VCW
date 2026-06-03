@@ -21,6 +21,11 @@
             <li><a href="{{ url_for('resources_page') }}" class="{% if request.endpoint == 'resources_page' %}active{% endif %}">资源库</a></li>
             <li><a href="{{ url_for('prompts_page') }}" class="{% if request.endpoint == 'prompts_page' %}active{% endif %}">Prompt编辑</a></li>
             <li><a href="{{ url_for('config_page') }}" class="{% if request.endpoint == 'config_page' %}active{% endif %}">配置</a></li>
+            {% if current_user.is_authenticated %}
+            <li><a href="{{ url_for('logout') }}">退出 ({{ current_user.username }})</a></li>
+            {% else %}
+            <li><a href="{{ url_for('login') }}" class="{% if request.endpoint == 'login' %}active{% endif %}">登录</a></li>
+            {% endif %}
         </ul>
     </nav>
 

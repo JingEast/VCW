@@ -19,6 +19,7 @@
             </div>
             <div class="card-body">
                 <form action="{{ url_for('editor_save') }}" method="POST" id="editorForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="draft_id" value="{{ draft_id }}">
                     
                     <div class="form-group">

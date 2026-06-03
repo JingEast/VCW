@@ -38,6 +38,29 @@ jobs:
       - name: mypy
         run: mypy . --ignore-missing-imports
 
+      # REL-04: Verify branch protection on main
+      - name: Check branch protection
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            RESPONSE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${REPO}/branches/${BRANCH}/protection")
+            if echo "$RESPONSE" | grep -q '"message":"Branch not protected"'; then
+              echo "::warning::REL-04: Branch protection not configured on ${BRANCH}. Enable at: https://github.com/${REPO}/settings/branches"
+            elif echo "$RESPONSE" | grep -q '"message":"Not Found"'; then
+              echo "::warning::REL-04: Unable to verify branch protection (token permissions or branch missing)."
+            else
+              echo "✅ REL-04: Branch protection verified on ${BRANCH}."
+            fi
+          else
+            echo "Branch protection check skipped for branch: ${BRANCH}"
+          fi
+
   # ==========================================================================
   # Stage 2: Test + Coverage
   # ==========================================================================
@@ -63,12 +86,16 @@ jobs:
         run: pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && secrets.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Warn missing Codecov token
+        if: github.event_name == 'push' && secrets.CODECOV_TOKEN == ''
+        run: echo "::warning::CODECOV_TOKEN not configured; coverage report not uploaded."
 
   # ==========================================================================
   # Stage 3: Migration Check (Alembic)
@@ -175,19 +202,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Docker Hub secrets
+        id: docker_secrets
+        run: |
+          if [ -n "${{ secrets.DOCKER_USERNAME }}" ] && [ -n "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::DOCKER_USERNAME or DOCKER_PASSWORD not configured. Skipping Docker push."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Docker Buildx
+        if: steps.docker_secrets.outputs.available == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build images for push
+        if: steps.docker_secrets.outputs.available == 'true'
         run: docker compose -p vcw build
 
       - name: Login to Docker Hub
+        if: steps.docker_secrets.outputs.available == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Tag and push web image
+        if: steps.docker_secrets.outputs.available == 'true'
         run: |
           docker tag vcw-web ${{ secrets.DOCKER_USERNAME }}/vcw-web:${{ github.sha }}
           docker tag vcw-web ${{ secrets.DOCKER_USERNAME }}/vcw-web:latest
@@ -195,6 +236,7 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/vcw-web:latest
 
       - name: Tag and push worker image
+        if: steps.docker_secrets.outputs.available == 'true'
         run: |
           docker tag vcw-worker ${{ secrets.DOCKER_USERNAME }}/vcw-worker:${{ github.sha }}
           docker tag vcw-worker ${{ secrets.DOCKER_USERNAME }}/vcw-worker:latest
@@ -202,6 +244,7 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/vcw-worker:latest
 
       - name: Tag and push beat image
+        if: steps.docker_secrets.outputs.available == 'true'
         run: |
           docker tag vcw-beat ${{ secrets.DOCKER_USERNAME }}/vcw-beat:${{ github.sha }}
           docker tag vcw-beat ${{ secrets.DOCKER_USERNAME }}/vcw-beat:latest
