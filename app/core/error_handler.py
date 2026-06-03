@@ -7,7 +7,7 @@ Designed to be registered in Flask app error handlers.
 import traceback
 from typing import Any
 
-from flask import Flask, jsonify, request
+from flask import Flask, request
 
 from app.core.api_response import bad_request, error, forbidden, not_found, unauthorized
 

@@ -7,7 +7,7 @@ from functools import wraps
 from typing import Callable
 
 from flask import jsonify
-from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import verify_jwt_in_request
 from flask_login import current_user
 
 

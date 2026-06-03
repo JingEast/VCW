@@ -58,7 +58,9 @@ def api_login():
             user_id = str(user.id)
             additional_claims = {"role": user.role}
             result["data"]["access_token"] = create_access_token(identity=user_id, additional_claims=additional_claims)
-            result["data"]["refresh_token"] = create_refresh_token(identity=user_id, additional_claims=additional_claims)
+            result["data"]["refresh_token"] = create_refresh_token(
+                identity=user_id, additional_claims=additional_claims
+            )
             result["data"]["token_type"] = "Bearer"
             result["data"]["expires_in"] = 1800
         return jsonify(result), 200

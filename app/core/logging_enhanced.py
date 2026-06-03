@@ -11,7 +11,6 @@ Provides structured JSON logging with separated streams:
 
 import logging
 import os
-from typing import Any
 
 from flask import Flask
 
@@ -65,7 +64,10 @@ def setup_enhanced_logging(app: Flask) -> None:
     security_handler.addFilter(security_filter)
     root.addHandler(security_handler)
 
-    app.logger.info("Enhanced logging initialized: access=%s error=%s security=%s", access_path, error_path, security_path)
+    app.logger.info(
+        "Enhanced logging initialized: access=%s error=%s security=%s",
+        access_path, error_path, security_path,
+    )
 
 
 def _safe_rotating_handler(path: str, level: int) -> logging.Handler:
