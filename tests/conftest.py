@@ -52,6 +52,7 @@ def app():
         "TESTING": True,
         "SECRET_KEY": "test-secret-key",
         "WTF_CSRF_ENABLED": False,
+        "PROPAGATE_EXCEPTIONS": True,
     })
 
     # 注册测试路由（必须在 yield 之前，避免运行时注册）

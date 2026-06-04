@@ -31,6 +31,9 @@ class TestTrendsPage:
     def test_trends_status_200(self, client):
         """热点页面返回 200"""
         response = client.get("/trends")
+        if response.status_code == 500:
+            print("===== RESPONSE BODY =====")
+            print(response.get_data(as_text=True))
         assert response.status_code == 200
 
     def test_trends_pagination(self, client):
