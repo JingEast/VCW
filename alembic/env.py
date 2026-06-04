@@ -41,7 +41,7 @@ def _compare_type(context, inspected_column, metadata_column, inspected_type, me
     meta_cls = metadata_type.__class__.__name__
     insp_cls = inspected_type.__class__.__name__
     if meta_cls == "VECTOR" and insp_cls == "VECTOR":
-        return getattr(metadata_type, "dim", None) == getattr(inspected_type, "dim", None)
+        return getattr(metadata_type, "dim", None) != getattr(inspected_type, "dim", None)
     # 其他类型使用 Alembic 默认比较逻辑
     return None
 
