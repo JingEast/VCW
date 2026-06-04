@@ -22,7 +22,7 @@ from vcw_copywriter.db.session import DATABASE_URL
 config = context.config
 
 # 动态注入数据库连接字符串（优先环境变量，其次 session 模块中的默认值）
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", os.environ.get("DATABASE_URL", DATABASE_URL))
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
