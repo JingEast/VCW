@@ -87,10 +87,12 @@ def _create_parent_batch(batch_id: str, total_angles: int):
 def _run_scenario(batches: int, angles_per_batch: int, failure_rate: float = 0.0, do_generate_override=None):
     """执行压力测试场景并返回指标。"""
     import services.generation_service as svc_mod
+    import vcw_copywriter.checker as checker_mod
 
     mock_llm = MockLLM(failure_rate=failure_rate)
     orig_build_prompts = svc_mod.GenerationService._build_prompts
     orig_do_generate = svc_mod.GenerationService._do_generate
+    orig_check_and_report = checker_mod.check_and_report
 
     def mock_build_prompts(self, req_data):
         angle = req_data.get("angle", "")
@@ -99,11 +101,15 @@ def _run_scenario(batches: int, angles_per_batch: int, failure_rate: float = 0.0
     def mock_do_generate(self, system_prompt, user_prompt):
         return mock_llm.generate(system_prompt, user_prompt)
 
+    def mock_check_and_report(content, strict_mode=False):
+        return True, "mock report"
+
     svc_mod.GenerationService._build_prompts = mock_build_prompts
     if do_generate_override:
         svc_mod.GenerationService._do_generate = do_generate_override
     else:
         svc_mod.GenerationService._do_generate = mock_do_generate
+    checker_mod.check_and_report = mock_check_and_report
 
     try:
         batch_ids = []
@@ -165,6 +171,7 @@ def _run_scenario(batches: int, angles_per_batch: int, failure_rate: float = 0.0
     finally:
         svc_mod.GenerationService._build_prompts = orig_build_prompts
         svc_mod.GenerationService._do_generate = orig_do_generate
+        checker_mod.check_and_report = orig_check_and_report
 
 
 class TestBatchStress:
