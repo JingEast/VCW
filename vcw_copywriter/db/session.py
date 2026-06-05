@@ -41,6 +41,7 @@ def _make_engine_kwargs(database_url: str) -> dict[str, Any]:
 # Lazy engine：在首次使用时创建，避免 pytest-cov 预先导入时捕获错误的环境变量
 _engine = None
 
+
 def get_engine():
     """获取或创建 SQLAlchemy engine（支持运行时 DATABASE_URL 变化）。"""
     global _engine
@@ -73,6 +74,7 @@ class _EngineProxy:
 
 
 engine = _EngineProxy()  # type: ignore[assignment]
+
 
 # 延迟绑定的 sessionmaker（每次调用时引用当前 engine）
 def _sessionmaker():
