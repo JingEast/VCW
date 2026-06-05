@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>用户登录</h1>
+    <p>登录以访问全部功能</p>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>登录</h2>
+        </div>
+        <form action="{{ url_for('login') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="username">用户名 <span class="required">*</span></label>
+                <input type="text" id="username" name="username" required placeholder="输入用户名">
+            </div>
+            <div class="form-group">
+                <label for="password">密码 <span class="required">*</span></label>
+                <input type="password" id="password" name="password" required placeholder="输入密码">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">登录</button>
+                <a href="{{ url_for('register') }}" class="btn btn-secondary">注册新账号</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <div class="card info-card">
+            <div class="card-header">
+                <h3>提示</h3>
+            </div>
+            <div class="card-body">
+                <p>首次使用请先注册账号。</p>
+                <p>登录后可使用文案生成、热点发现、批量生成等全部功能。</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,22 +12,34 @@ PROJECT="vcw"
 COMPOSE="docker compose -p ${PROJECT}"
 
 _log() { echo "[ci-smoke] $*"; }
-_fail() { echo "[ci-smoke] FAIL: $*"; exit 1; }
+_fail() { echo "[ci-smoke] FAIL: $*"; _dump_logs; exit 1; }
 
 # 收集容器日志的辅助函数（失败时调用）
 _dump_logs() {
     _log "Dumping container logs for debugging..."
     mkdir -p docker-logs
+
+    # 记录所有容器状态（含已退出）
+    $COMPOSE ps -a > docker-logs/compose-ps.log 2>&1 || true
+    docker ps -a --filter "name=vcw-" >> docker-logs/compose-ps.log 2>&1 || true
+
     local services=("postgres" "redis" "web" "worker" "beat")
     for svc in "${services[@]}"; do
         local cid
-        cid=$($COMPOSE ps -q "$svc" 2>/dev/null) || true
+        # 尝试获取运行中或已停止的容器 ID
+        cid=$($COMPOSE ps -q "${svc}" 2>/dev/null | head -n1) || true
         if [ -n "$cid" ]; then
+            _log "  → collecting logs for ${svc} (${cid:0:12})"
             docker logs "$cid" > "docker-logs/${svc}.log" 2>&1 || true
+            docker inspect --format '{{json .State}}' "$cid" > "docker-logs/${svc}-state.json" 2>&1 || true
+            docker inspect --format '{{json .Config.Env}}' "$cid" > "docker-logs/${svc}-env.json" 2>&1 || true
+        else
+            _log "  → no container found for ${svc}"
         fi
     done
 }
 
+# 保留 ERR trap 作为双重保险；_fail 也会显式调用 _dump_logs
 trap '_dump_logs' ERR
 
 # ------------------------------------------------------------------------------
@@ -68,14 +80,28 @@ _log "Step 3/5: Web service health checks"
 
 _log "  → Web /health (with retry, max 60s)"
 HEALTH_STATUS="000"
+HEALTH_BODY=""
 for i in $(seq 1 30); do
+    HEALTH_BODY=$(curl -s http://localhost:5000/health || echo '{"error":"curl-failed"}')
     HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/health || echo "000")
     if [ "$HEALTH_STATUS" = "200" ]; then
         break
     fi
+    # 每 10 秒打印一次容器状态与健康响应体，便于诊断
+    if [ $((i % 5)) -eq 0 ]; then
+        WEB_STATE=$($COMPOSE ps --status running --services web 2>/dev/null || true)
+        _log "    retry ${i}/30, health=${HEALTH_STATUS}, body=${HEALTH_BODY}, web running services: ${WEB_STATE:-<none>}"
+    fi
     sleep 2
 done
-[ "$HEALTH_STATUS" = "200" ] || _fail "Web /health returned $HEALTH_STATUS"
+if [ "$HEALTH_STATUS" != "200" ]; then
+    _log "Web container status before fail:"
+    $COMPOSE ps web || true
+    _log "Last /health response body: ${HEALTH_BODY}"
+    _log "Last 50 lines of web container logs:"
+    docker logs "$WEB_CID" --tail 50 2>&1 || true
+    _fail "Web /health returned ${HEALTH_STATUS}"
+fi
 curl -s http://localhost:5000/health | python3 -m json.tool || true
 
 _log "  → Web /metrics"

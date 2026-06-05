@@ -32,8 +32,13 @@ class TrendScheduler:
 
     def _load_state(self) -> Dict:
         if self.state_path.exists():
-            with open(self.state_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+            try:
+                with open(self.state_path, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content:
+                        return json.loads(content)
+            except (json.JSONDecodeError, OSError):
+                pass
         return {
             "enabled": False,
             "interval_minutes": self.DEFAULT_INTERVAL_MINUTES,

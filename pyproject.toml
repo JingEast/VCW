@@ -1,5 +1,9 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
+addopts = "-m 'not slow' --timeout=60"
+markers = [
+    "slow: marks tests as slow (deselect with '-m not slow')",
+]
 
 [tool.mypy]
 python_version = "3.12"

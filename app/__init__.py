@@ -102,11 +102,11 @@ def create_app() -> Flask:
     # ============================================================
     # Auth Blueprints (register before auth init so routes exist)
     # ============================================================
-    from app.pages import auth as pages_auth
-    from app.api.v1 import auth as api_auth
+    from app.pages.auth import bp as pages_auth_bp
+    from app.api.v1.auth import bp as api_auth_bp
 
-    app.register_blueprint(pages_auth.bp)
-    app.register_blueprint(api_auth.bp, url_prefix="/api/v1")
+    app.register_blueprint(pages_auth_bp)
+    app.register_blueprint(api_auth_bp, url_prefix="/api/v1")
 
     # ============================================================
     # JWT Authentication
@@ -154,7 +154,7 @@ def create_app() -> Flask:
         csrf.exempt(api_editor.bp)
         csrf.exempt(api_prompts.bp)
         csrf.exempt(api_misc.bp)
-        csrf.exempt(api_auth.bp)
+        csrf.exempt(api_auth_bp)
     except ImportError:
         app.logger.warning("flask-wtf not installed, CSRF protection disabled")
 
@@ -166,10 +166,15 @@ def create_app() -> Flask:
     def health():
         from celery_app import health_check as celery_health
         celery_status = celery_health()
+        # Web 核心健康检查不阻塞于 Celery 状态；
+        # Celery 降级仅记录日志并在响应体中报告，
+        # 避免负载均衡器因 broker 瞬态问题踢出 web 容器。
+        if celery_status["status"] != "ok":
+            app.logger.warning("Health check degraded: %s", celery_status)
         return jsonify({
             "status": "ok" if celery_status["status"] == "ok" else "degraded",
             "celery": celery_status,
-        }), 200 if celery_status["status"] == "ok" else 503
+        }), 200
 
     # ============================================================
     # Prometheus 指标端点

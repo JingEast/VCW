@@ -116,11 +116,15 @@ def inject_task_trace_id(sender=None, task=None, **kwargs):
 
 def health_check() -> dict:
     """返回 Celery 连接健康状态（用于 /health 端点）。"""
+    import logging
+    logger = logging.getLogger(__name__)
     try:
         with app.connection() as conn:
             conn.ensure_connection(max_retries=1)
+        logger.info("Celery health check ok (broker=%s)", _BROKER_URL)
         return {"status": "ok", "broker": _BROKER_URL, "backend": _RESULT_BACKEND}
     except Exception as exc:
+        logger.warning("Celery health check failed: broker=%s error=%s", _BROKER_URL, exc)
         return {"status": "error", "detail": str(exc), "broker": _BROKER_URL, "backend": _RESULT_BACKEND}
 
 

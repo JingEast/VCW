@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - 港籍升学文案生成器{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>用户注册</h1>
+    <p>创建新账号以开始使用</p>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h2>注册</h2>
+        </div>
+        <form action="{{ url_for('register') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="username">用户名 <span class="required">*</span></label>
+                <input type="text" id="username" name="username" required placeholder="设置用户名">
+            </div>
+            <div class="form-group">
+                <label for="email">邮箱 <span class="required">*</span></label>
+                <input type="email" id="email" name="email" required placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label for="password">密码 <span class="required">*</span></label>
+                <input type="password" id="password" name="password" required placeholder="至少6位字符">
+            </div>
+            <div class="form-group">
+                <label for="password_confirm">确认密码 <span class="required">*</span></label>
+                <input type="password" id="password_confirm" name="password_confirm" required placeholder="再次输入密码">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">注册</button>
+                <a href="{{ url_for('login') }}" class="btn btn-secondary">已有账号？登录</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <div class="card info-card">
+            <div class="card-header">
+                <h3>注册说明</h3>
+            </div>
+            <div class="card-body">
+                <ul class="tips-list">
+                    <li>用户名唯一，注册后不可修改</li>
+                    <li>密码长度至少 6 位</li>
+                    <li>邮箱用于找回密码（后续支持）</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -10,9 +10,9 @@ pytest 全局 fixtures
 
 import os
 
-# 必须在导入任何 db/session 模块之前设置，因为 engine 在模块导入时创建
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("VCW_API_KEY", "test-api-key-for-pytest")
+# 强制覆盖为内存数据库，避免 .env 或 pytest-cov 预先导入导致 engine 指向错误数据库
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["VCW_API_KEY"] = "test-api-key-for-pytest"
 
 import pytest
 from flask import Blueprint
@@ -52,6 +52,7 @@ def app():
         "TESTING": True,
         "SECRET_KEY": "test-secret-key",
         "WTF_CSRF_ENABLED": False,
+        "PROPAGATE_EXCEPTIONS": True,
     })
 
     # 注册测试路由（必须在 yield 之前，避免运行时注册）

@@ -8,8 +8,9 @@ import pytest
 class TestAppSettingsValidation:
     """验证 AppSettings 字段校验。"""
 
-    def test_secret_key_required_in_production(self, monkeypatch):
+    def test_secret_key_required_in_production(self, monkeypatch, tmp_path):
         """生产环境（非 TESTING、非 DEBUG）缺少 SECRET_KEY 应产生警告。"""
+        monkeypatch.chdir(tmp_path)
         monkeypatch.delenv("SECRET_KEY", raising=False)
         monkeypatch.delenv("TESTING", raising=False)
         monkeypatch.delenv("FLASK_DEBUG", raising=False)
@@ -22,8 +23,9 @@ class TestAppSettingsValidation:
         warnings = validate_startup_config()
         assert any("SECRET_KEY" in w for w in warnings)
 
-    def test_secret_key_optional_when_testing(self, monkeypatch):
+    def test_secret_key_optional_when_testing(self, monkeypatch, tmp_path):
         """测试环境 SECRET_KEY 可选。"""
+        monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("TESTING", "1")
         monkeypatch.delenv("SECRET_KEY", raising=False)
         from app.core.config_schema import AppSettings

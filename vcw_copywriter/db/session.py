@@ -12,32 +12,87 @@ from sqlalchemy.pool import StaticPool
 
 # 优先使用环境变量 DATABASE_URL，否则回退到本地 SQLite
 DEFAULT_DATABASE_URL = "sqlite:///data/vcw.db"
-DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
-# SQLite :memory: 需要 StaticPool，否则每次新连接都是空数据库
-_is_memory_sqlite = DATABASE_URL.startswith("sqlite:///:memory:")
-_is_postgresql = DATABASE_URL.startswith("postgresql")
 
-_engine_kwargs: dict[str, Any] = {
-    "echo": False,
-    "pool_pre_ping": True,          # 自动检测断连
-    "pool_recycle": 3600,           # 1 小时回收连接
-}
-if _is_memory_sqlite:
-    _engine_kwargs["connect_args"] = {"check_same_thread": False}
-    _engine_kwargs["poolclass"] = StaticPool
-elif _is_postgresql:
-    # 生产环境连接池：基础 10 个连接，峰值 30 个
-    _engine_kwargs["pool_size"] = int(os.environ.get("DB_POOL_SIZE", "10"))
-    _engine_kwargs["max_overflow"] = int(os.environ.get("DB_MAX_OVERFLOW", "20"))
+def _get_database_url() -> str:
+    return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
-engine = create_engine(
-    DATABASE_URL,
-    **_engine_kwargs,
-)
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-ScopedSession = scoped_session(SessionLocal)
+# 向后兼容：允许旧代码直接 import DATABASE_URL
+# 注意：模块导入后该值不会再随环境变量变化；需要动态读取请使用 _get_database_url()
+DATABASE_URL = _get_database_url()
+
+
+def _make_engine_kwargs(database_url: str) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "echo": False,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+    }
+    if database_url.startswith("sqlite:///:memory:"):
+        kwargs["connect_args"] = {"check_same_thread": False}
+        kwargs["poolclass"] = StaticPool
+    elif database_url.startswith("postgresql"):
+        kwargs["pool_size"] = int(os.environ.get("DB_POOL_SIZE", "10"))
+        kwargs["max_overflow"] = int(os.environ.get("DB_MAX_OVERFLOW", "20"))
+    return kwargs
+
+
+# Lazy engine：在首次使用时创建，避免 pytest-cov 预先导入时捕获错误的环境变量
+_engine = None
+_engine_url = None
+
+
+def get_engine():
+    """获取或创建 SQLAlchemy engine（DATABASE_URL 变化时自动重建）。"""
+    global _engine, _engine_url
+    current_url = _get_database_url()
+    if _engine is None or _engine_url != current_url:
+        if _engine is not None:
+            _engine.dispose()
+        _engine_url = current_url
+        _engine = create_engine(
+            current_url,
+            **_make_engine_kwargs(current_url),
+        )
+    return _engine
+
+
+def reset_engine():
+    """重置 engine（用于测试环境切换数据库）。"""
+    global _engine, _engine_url
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _engine_url = None
+
+
+# 兼容旧代码直接引用 engine（首次访问时惰性初始化）
+class _EngineProxy:
+    """代理对象，允许旧代码通过 module.engine 访问当前 engine。"""
+    def __getattr__(self, name):
+        return getattr(get_engine(), name)
+
+    def __setattr__(self, name, value):
+        setattr(get_engine(), name, value)
+
+    def __call__(self, *args, **kwargs):
+        return get_engine()(*args, **kwargs)
+
+
+engine = _EngineProxy()  # type: ignore[assignment]
+
+
+# 延迟绑定的 sessionmaker（每次调用时引用当前 engine）
+class _SessionLocal:
+    """可调用代理，保证每次创建的 Session 都绑定到当前 engine。"""
+
+    def __call__(self, *args, **kwargs):
+        return sessionmaker(autocommit=False, autoflush=False, bind=get_engine())(*args, **kwargs)
+
+
+SessionLocal: Any = _SessionLocal()
+ScopedSession: Any = scoped_session(SessionLocal)  # type: ignore[arg-type]
 
 
 def get_session():
@@ -48,8 +103,10 @@ def get_session():
 def init_db():
     """创建所有表（如果不存在）。PostgreSQL 下自动启用 pgvector 扩展。"""
     from .models import Base
-    if DATABASE_URL.startswith("postgresql"):
-        with engine.begin() as conn:
+    _engine = get_engine()
+    database_url = _get_database_url()
+    if database_url.startswith("postgresql"):
+        with _engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    Base.metadata.create_all(bind=engine)
-    print(f"[DB] 数据库初始化完成: {DATABASE_URL}")
+    Base.metadata.create_all(bind=_engine)
+    print(f"[DB] 数据库初始化完成: {database_url}")

@@ -82,8 +82,8 @@ _SAFE_PREVIEW_DIRS = {"data", "templates", "static", "docs"}
 @limiter.limit("30 per minute")
 def preview_file(filename):
     """API：预览文件内容（受路径遍历保护）。"""
-    # 1. 禁止绝对路径
-    if os.path.isabs(filename):
+    # 1. 禁止绝对路径（同时支持 Unix / 和 Windows C:\ 格式）
+    if os.path.isabs(filename) or __import__("re").match(r"^[A-Za-z]:[\\/]", filename):
         return error_response("INVALID_PATH", "Absolute paths are not allowed", status_code=400)
     # 2. 禁止路径遍历符号
     if ".." in filename or "~" in filename:

@@ -94,7 +94,9 @@ class TransactionManager:
             try:
                 undo()
             except Exception:
-                logger.exception("Transaction compensation failed")
+                # Use root logger to ensure visibility when module-level
+                # logger propagation is disrupted by external logging config.
+                logging.getLogger().exception("Transaction compensation failed")
         self._compensations.clear()
 
     def on_failure(self, undo_fn: Callable[[], None]) -> None:
