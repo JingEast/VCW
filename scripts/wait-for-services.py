@@ -58,24 +58,36 @@ def _wait_redis(url: str) -> bool:
     return False
 
 
+def _normalize_postgres_url(url: str) -> str:
+    """将 SQLAlchemy 风格的 postgresql+psycopg2:// 转换为 libpq 可识别的 postgresql://。"""
+    if url.startswith("postgresql+"):
+        # 替换第一个 postgresql+driver:// 为 postgresql://
+        return "postgresql://" + url.split("://", 1)[1]
+    return url
+
+
 def _wait_postgres(url: str) -> bool:
     """等待 PostgreSQL 就绪（通过 psycopg2 连接测试）。"""
+    normalized = _normalize_postgres_url(url)
     start = time.time()
+    last_error = ""
     while time.time() - start < _TIMEOUT:
         try:
             import psycopg2
-            conn = psycopg2.connect(url, connect_timeout=2)
+            conn = psycopg2.connect(normalized, connect_timeout=2)
             conn.close()
             _log("PostgreSQL is ready")
             return True
         except ImportError:
             _log("psycopg2 not installed, skipping PostgreSQL wait")
             return True
-        except Exception:
+        except Exception as exc:
+            last_error = str(exc)
+            # 只在首次或错误变化时打印，避免日志刷屏
             pass
         time.sleep(_INTERVAL)
 
-    _log(f"PostgreSQL not ready within {_TIMEOUT}s")
+    _log(f"PostgreSQL not ready within {_TIMEOUT}s (last error: {last_error})")
     return False
 
 

@@ -18,12 +18,22 @@ _fail() { echo "[ci-smoke] FAIL: $*"; exit 1; }
 _dump_logs() {
     _log "Dumping container logs for debugging..."
     mkdir -p docker-logs
+
+    # 记录所有容器状态（含已退出）
+    $COMPOSE ps -a > docker-logs/compose-ps.log 2>&1 || true
+    docker ps -a --filter "name=vcw-" >> docker-logs/compose-ps.log 2>&1 || true
+
     local services=("postgres" "redis" "web" "worker" "beat")
     for svc in "${services[@]}"; do
         local cid
-        cid=$($COMPOSE ps -q "$svc" 2>/dev/null) || true
+        # 尝试获取运行中或已停止的容器 ID
+        cid=$($COMPOSE ps -qa -- "${svc}" 2>/dev/null | head -n1) || true
         if [ -n "$cid" ]; then
+            _log "  → collecting logs for ${svc} (${cid:0:12})"
             docker logs "$cid" > "docker-logs/${svc}.log" 2>&1 || true
+            docker inspect --format '{{json .State}}' "$cid" > "docker-logs/${svc}-state.json" 2>&1 || true
+        else
+            _log "  → no container found for ${svc}"
         fi
     done
 }
@@ -73,9 +83,20 @@ for i in $(seq 1 30); do
     if [ "$HEALTH_STATUS" = "200" ]; then
         break
     fi
+    # 每 10 秒打印一次容器状态，便于诊断
+    if [ $((i % 5)) -eq 0 ]; then
+        WEB_STATE=$($COMPOSE ps --status running --services web 2>/dev/null || true)
+        _log "    retry ${i}/30, health=${HEALTH_STATUS}, web running services: ${WEB_STATE:-<none>}"
+    fi
     sleep 2
 done
-[ "$HEALTH_STATUS" = "200" ] || _fail "Web /health returned $HEALTH_STATUS"
+if [ "$HEALTH_STATUS" != "200" ]; then
+    _log "Web container status before fail:"
+    $COMPOSE ps web || true
+    _log "Last 50 lines of web container logs:"
+    docker logs "$WEB_CID" --tail 50 2>&1 || true
+    _fail "Web /health returned $HEALTH_STATUS"
+fi
 curl -s http://localhost:5000/health | python3 -m json.tool || true
 
 _log "  → Web /metrics"
