@@ -91,8 +91,8 @@ class _SessionLocal:
         return sessionmaker(autocommit=False, autoflush=False, bind=get_engine())(*args, **kwargs)
 
 
-SessionLocal = _SessionLocal()
-ScopedSession = scoped_session(SessionLocal)
+SessionLocal: Any = _SessionLocal()
+ScopedSession: Any = scoped_session(SessionLocal)  # type: ignore[arg-type]
 
 
 def get_session():

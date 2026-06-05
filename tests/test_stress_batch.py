@@ -17,6 +17,7 @@
   - 成功率 / 部分成功率 / 失败率
 """
 
+import os
 import time
 import uuid
 import tracemalloc
@@ -29,6 +30,14 @@ from celery_app import app as celery_app
 from vcw_celery_tasks.tasks import generate_batch_task
 from vcw_copywriter.db.session import get_session
 from vcw_copywriter.db.models import GenerationJob
+
+
+# CI runners are extremely slow for eager-mode Celery stress tests;
+# skip the entire class when running in GitHub Actions.
+pytestmark = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Stress tests are too slow on CI runners (each mocked task takes ~7s)",
+)
 
 
 class MockLLM:
