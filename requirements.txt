@@ -6,6 +6,7 @@ pyyaml>=6.0
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 pytest>=8.0.0
+pytest-timeout>=2.0.0
 dependency-injector>=4.49.0
 alembic>=1.14.0
 defusedxml>=0.7.1

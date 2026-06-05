@@ -186,6 +186,7 @@ def _run_scenario(batches: int, angles_per_batch: int, failure_rate: float = 0.0
         checker_mod.check_and_report = orig_checker_check_and_report
 
 
+@pytest.mark.slow
 class TestBatchStress:
     """批量任务压力测试"""
 
