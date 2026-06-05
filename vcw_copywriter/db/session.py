@@ -18,6 +18,11 @@ def _get_database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
+# 向后兼容：允许旧代码直接 import DATABASE_URL
+# 注意：模块导入后该值不会再随环境变量变化；需要动态读取请使用 _get_database_url()
+DATABASE_URL = _get_database_url()
+
+
 def _make_engine_kwargs(database_url: str) -> dict[str, Any]:
     kwargs: dict[str, Any] = {
         "echo": False,

@@ -18,12 +18,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # 导入 SQLAlchemy Base 与数据库 URL
 from vcw_copywriter.db.models import Base
-from vcw_copywriter.db.session import DATABASE_URL
+from vcw_copywriter.db.session import _get_database_url
 
 # this is the Alembic Config object
 config = context.config
 
 # 动态注入数据库连接字符串（优先环境变量，其次 session 模块中的默认值）
+DATABASE_URL = _get_database_url()
 config.set_main_option("sqlalchemy.url", os.environ.get("DATABASE_URL", DATABASE_URL))
 
 # Interpret the Python file for logging.
