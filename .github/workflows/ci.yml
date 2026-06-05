@@ -154,6 +154,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 移除本地开发用的 .env，防止 Docker Compose 读取并将 localhost 地址注入容器
+      - name: Remove local .env to prevent Docker Compose pollution
+        run: rm -f .env
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
