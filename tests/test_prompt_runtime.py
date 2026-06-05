@@ -251,8 +251,10 @@ class TestPromptMetricsCollector:
 
     def test_record_and_aggregate(self):
         collector = PromptMetricsCollector(enable_prometheus=False)
-        collector.record(PromptCallInfo(latency_ms=100.0, input_tokens=30, output_tokens=20, success=True, model="gpt-4o"))
-        collector.record(PromptCallInfo(latency_ms=200.0, input_tokens=60, output_tokens=40, success=False, model="gpt-4o"))
+        collector.record(PromptCallInfo(
+            latency_ms=100.0, input_tokens=30, output_tokens=20, success=True, model="gpt-4o"))
+        collector.record(PromptCallInfo(
+            latency_ms=200.0, input_tokens=60, output_tokens=40, success=False, model="gpt-4o"))
         m = collector.get_snapshot()
         assert m.total_calls == 2
         assert m.total_input_tokens == 90
@@ -266,7 +268,8 @@ class TestPromptMetricsCollector:
     def test_percentiles(self):
         collector = PromptMetricsCollector(enable_prometheus=False)
         for i in range(1, 11):
-            collector.record(PromptCallInfo(latency_ms=float(i * 10), input_tokens=10, output_tokens=10, success=True, model="gpt-4o"))
+            collector.record(PromptCallInfo(
+                latency_ms=float(i * 10), input_tokens=10, output_tokens=10, success=True, model="gpt-4o"))
         m = collector.get_snapshot()
         assert m.p50_latency_ms == 55.0
         # linear interpolation: p90 = 90 * 0.9 + 100 * 0.1 = 91
@@ -277,8 +280,10 @@ class TestPromptMetricsCollector:
 
     def test_get_by_model(self):
         collector = PromptMetricsCollector(enable_prometheus=False)
-        collector.record(PromptCallInfo(latency_ms=100.0, input_tokens=10, output_tokens=10, success=True, model="gpt-4o"))
-        collector.record(PromptCallInfo(latency_ms=200.0, input_tokens=20, output_tokens=20, success=True, model="moonshot-v1-8k"))
+        collector.record(PromptCallInfo(
+            latency_ms=100.0, input_tokens=10, output_tokens=10, success=True, model="gpt-4o"))
+        collector.record(PromptCallInfo(
+            latency_ms=200.0, input_tokens=20, output_tokens=20, success=True, model="moonshot-v1-8k"))
         gpt = collector.get_by_model("gpt-4o")
         assert gpt.total_calls == 1
         assert gpt.avg_latency_ms == 100.0
@@ -290,8 +295,12 @@ class TestPromptMetricsCollector:
         import time as _time
 
         collector = PromptMetricsCollector(enable_prometheus=False)
-        collector.record(PromptCallInfo(latency_ms=100.0, input_tokens=10, output_tokens=10, success=True, model="gpt-4o", timestamp=_time.time() - 10))
-        collector.record(PromptCallInfo(latency_ms=200.0, input_tokens=10, output_tokens=10, success=True, model="gpt-4o", timestamp=_time.time()))
+        collector.record(PromptCallInfo(
+            latency_ms=100.0, input_tokens=10, output_tokens=10, success=True, model="gpt-4o",
+            timestamp=_time.time() - 10))
+        collector.record(PromptCallInfo(
+            latency_ms=200.0, input_tokens=10, output_tokens=10, success=True, model="gpt-4o",
+            timestamp=_time.time()))
         m = collector.get_snapshot(window_seconds=5)
         assert m.total_calls == 1
         assert m.avg_latency_ms == 200.0
@@ -530,3 +539,176 @@ class TestPromptRetryWithFallback:
         assert success is True
         assert isinstance(result, DegradeContent)
         assert result.success is False
+
+
+class TestPromptExecutor:
+    """PromptExecutor 实现测试"""
+
+    def test_execute_success(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor, PromptExecutionContext
+
+        mock_gen = MagicMock()
+        mock_gen.generate.return_value = (
+            True, "generated text", "模型: gpt-4o | 消耗tokens: 42"
+        )
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            lambda config: mock_gen,
+        )
+
+        executor = PromptExecutor({"api_key": "test"})
+        ctx = PromptExecutionContext(
+            system_prompt="sys", user_prompt="user"
+        )
+        result = executor.execute(ctx)
+
+        assert result.success is True
+        assert result.content == "generated text"
+        assert result.meta == "模型: gpt-4o | 消耗tokens: 42"
+        assert result.token_usage == {"total_tokens": 42}
+        assert result.latency_ms >= 0
+        mock_gen.generate.assert_called_once_with("sys", "user")
+
+    def test_execute_failure(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor, PromptExecutionContext
+
+        mock_gen = MagicMock()
+        mock_gen.generate.return_value = (False, "", "生成失败: timeout")
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            lambda config: mock_gen,
+        )
+
+        executor = PromptExecutor({"api_key": "test"})
+        ctx = PromptExecutionContext(system_prompt="s", user_prompt="u")
+        result = executor.execute(ctx)
+
+        assert result.success is False
+        assert result.content == ""
+        assert "timeout" in result.meta
+        assert result.token_usage is None
+
+    def test_execute_exception_captured(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor, PromptExecutionContext
+
+        def _raise_on_init(*args, **kwargs):
+            raise RuntimeError("no api key")
+
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            _raise_on_init,
+        )
+
+        executor = PromptExecutor({})
+        ctx = PromptExecutionContext(system_prompt="s", user_prompt="u")
+        result = executor.execute(ctx)
+
+        assert result.success is False
+        assert "no api key" in result.meta
+        assert result.latency_ms >= 0
+
+    def test_execute_stream_success(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor, PromptExecutionContext
+
+        mock_gen = MagicMock()
+        mock_gen.generate_stream.return_value = iter(["hello", " world"])
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            lambda config: mock_gen,
+        )
+
+        executor = PromptExecutor({"api_key": "test"})
+        ctx = PromptExecutionContext(
+            system_prompt="sys", user_prompt="user"
+        )
+        chunks = list(executor.execute_stream(ctx))
+
+        assert len(chunks) == 3
+        assert chunks[0].text == "hello"
+        assert chunks[1].text == " world"
+        assert chunks[2].is_done is True
+        assert all(not c.is_error for c in chunks)
+        mock_gen.generate_stream.assert_called_once_with("sys", "user")
+
+    def test_execute_stream_error(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor, PromptExecutionContext
+
+        def _bad_stream(*args, **kwargs):
+            raise ValueError("stream broken")
+
+        mock_gen = MagicMock()
+        mock_gen.generate_stream.side_effect = _bad_stream
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            lambda config: mock_gen,
+        )
+
+        executor = PromptExecutor({"api_key": "test"})
+        ctx = PromptExecutionContext(system_prompt="s", user_prompt="u")
+        chunks = list(executor.execute_stream(ctx))
+
+        assert len(chunks) == 1
+        assert chunks[0].is_error is True
+        assert chunks[0].is_done is True
+        assert "stream broken" in chunks[0].text
+
+    def test_generator_lazy_init(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor
+
+        calls = []
+
+        class FakeGen:
+            def __init__(self, config):
+                calls.append(config)
+                self.model = "default"
+                self.temperature = 0.7
+                self.max_tokens = 2000
+
+            def generate(self, *args):
+                return True, "ok", ""
+
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            FakeGen,
+        )
+
+        executor = PromptExecutor({"api_key": "k", "model": "m1"})
+        assert executor._generator is None
+
+        fake_ctx = MagicMock(
+            system_prompt="s",
+            user_prompt="u",
+            model="",
+            temperature=0.5,
+            max_tokens=100,
+        )
+        executor.execute(fake_ctx)
+        assert len(calls) == 1
+        assert calls[0]["model"] == "m1"
+        assert executor._generator is not None
+
+    def test_generator_updates_params_from_ctx(self, monkeypatch):
+        from prompt_runtime.prompt_executor import PromptExecutor, PromptExecutionContext
+
+        class FakeGen:
+            def __init__(self, config):
+                self.model = config.get("model", "default")
+                self.temperature = config.get("temperature", 0.7)
+                self.max_tokens = config.get("max_tokens", 2000)
+
+            def generate(self, *args):
+                val = f"{self.model}:{self.temperature}:{self.max_tokens}"
+                return True, val, ""
+
+        monkeypatch.setattr(
+            "vcw_copywriter.generator.CopywriterGenerator",
+            FakeGen,
+        )
+
+        executor = PromptExecutor({"api_key": "k"})
+        ctx = PromptExecutionContext(
+            model="gpt-4", temperature=0.9, max_tokens=500
+        )
+        result = executor.execute(ctx)
+
+        assert result.content == "gpt-4:0.9:500"
