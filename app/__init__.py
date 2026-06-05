@@ -166,13 +166,15 @@ def create_app() -> Flask:
     def health():
         from celery_app import health_check as celery_health
         celery_status = celery_health()
-        status_code = 200 if celery_status["status"] == "ok" else 503
-        if status_code != 200:
+        # Web 核心健康检查不阻塞于 Celery 状态；
+        # Celery 降级仅记录日志并在响应体中报告，
+        # 避免负载均衡器因 broker 瞬态问题踢出 web 容器。
+        if celery_status["status"] != "ok":
             app.logger.warning("Health check degraded: %s", celery_status)
         return jsonify({
             "status": "ok" if celery_status["status"] == "ok" else "degraded",
             "celery": celery_status,
-        }), status_code
+        }), 200
 
     # ============================================================
     # Prometheus 指标端点
